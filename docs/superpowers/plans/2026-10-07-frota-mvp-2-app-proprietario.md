@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Entregar o app Expo (Android + iPhone) com login e cadastro, e todas as telas do proprietário: frota, carros, plano de manutenção, painel, ações no carro, motoristas, pendências, gastos com gráficos e central de avisos. O app usa o backend do Plano 1.
+**Goal:** Entregar o app Expo (Android + iPhone) com login e cadastro, e todas as telas do proprietário: frota, carros (cadastro manual, sem FIPE), plano de manutenção, painel, ações no carro, motoristas, pendências, gastos com gráficos e central de avisos. O app usa o backend do Plano 1.
 
 **Architecture:**
 - **Projeto:** app Expo (SDK 57) com Expo Router e TypeScript na pasta `mobile/`.
@@ -56,7 +56,7 @@
 ## Review Focus
 
 1. **Sessão expirada ou rede caída durante uma ação:** a tela mostra a mensagem de `mensagemErro`, não trava e não perde o formulário. Teste em `erros.test.ts` (Task 1) e nos testes de tela das Tasks 4 e 7.
-2. **FIPE fora do ar (503):** o cadastro do carro cai para campos de texto, sem erro bloqueante. Teste na Task 4.
+2. **Placa repetida ou dados inválidos no cadastro do carro:** a mensagem é clara e o formulário não é perdido. Teste na Task 4.
 3. **Frota vazia** (sem carros, sem motoristas, sem pendências, sem gastos): toda lista mostra um estado vazio com texto, não uma tela em branco. Testes nas Tasks 6, 8, 9 e 10.
 4. **Proprietário ainda sem frota:** depois do login, ele cai na criação de frota, não num painel quebrado. Teste na Task 3.
 5. **Motorista logado:** vai para a tela provisória "Em breve" (o Plano 3 a substitui), nunca para telas do dono. Teste na Task 2.
@@ -86,7 +86,7 @@ mobile/
   src/
     lib/cliente.ts, erros.ts, formatos.ts, status.ts, tema.ts, database.types.ts (gerado)
     sessao/SessaoProvider.tsx, useSessao.ts
-    api/auth.ts, frota.ts, veiculos.ts, fipe.ts, manutencao.ts, pendencias.ts, gastos.ts, avisos.ts, fotos.ts
+    api/auth.ts, frota.ts, veiculos.ts, manutencao.ts, pendencias.ts, gastos.ts, avisos.ts, fotos.ts
     componentes/  Botao, Campo, Seletor, Lista vazia, BadgeStatus, Carregando, Erro, GraficoBarras, FotoRemota
     features/gastos/agregar.ts
   (testes ao lado: *.test.ts / *.test.tsx)
@@ -301,52 +301,45 @@ Expected: tsc sem erros; jest PASS.
 
 ---
 
-### Task 4: Cadastro de carro com FIPE
+### Task 4: Cadastro de carro
+
+> Decisão do autor (2026-10-07): **sem FIPE por enquanto**. Marca, modelo e ano são digitados. A Edge Function `fipe` do Plano 1 continua no backend, sem uso no app.
 
 **Files:**
-- Create: `mobile/src/api/fipe.ts`, `mobile/src/api/veiculos.ts`, `mobile/app/(dono)/carros/novo.tsx`
-- Test: `mobile/src/api/fipe.test.ts`, `mobile/app/(dono)/carros/novo.test.tsx`
+- Create: `mobile/src/api/veiculos.ts`, `mobile/app/(dono)/carros/novo.tsx`
+- Test: `mobile/app/(dono)/carros/novo.test.tsx`
 
 **Interfaces:**
-- Produces:
-  - **`api/fipe.ts`:**
-    - `export type OpcaoFipe = { codigo: string; nome: string }`
-    - `listarMarcas(): Promise<OpcaoFipe[] | null>`
-    - `listarModelos(marca: string): Promise<OpcaoFipe[] | null>`
-    - `listarAnos(marca: string, modelo: string): Promise<OpcaoFipe[] | null>`
-    - Todas usam `supabase.functions.invoke('fipe?tipo=…', { method: 'GET' })` e retornam `null` quando a resposta é 503 ou há falha de rede (fallback manual).
-  - **`api/veiculos.ts`:**
-    - `export type NovoVeiculo = { placa: string; marca: string; modelo: string; ano_modelo: number; cor: string; fipe_codigo: string | null; km_atual: number; km_dia_estimado: number }`
-    - `cadastrarVeiculo(fleetId: string, v: NovoVeiculo): Promise<{ id: string }>`, com insert em `vehicles` e `select('id')`
-  - **Cores (constante):** `CORES = ['Branco','Preto','Prata','Cinza','Vermelho','Azul','Outra']`
-  - **Ano:** vem do `nome` do ano FIPE (ex.: `"2022 Flex"` → 2022, via `parseInt`).
+- Produces (em `api/veiculos.ts`):
+  - `export type NovoVeiculo = { placa: string; marca: string; modelo: string; ano_modelo: number; cor: string; km_atual: number; km_dia_estimado: number }`
+  - `cadastrarVeiculo(fleetId: string, v: NovoVeiculo): Promise<{ id: string }>`: insert em `vehicles` com `fipe_codigo` null e `select('id')`
+- Constantes:
+  - `CORES = ['Branco','Preto','Prata','Cinza','Vermelho','Azul','Outra']`
+  - `MARCAS_COMUNS = ['Chevrolet','Fiat','Volkswagen','Hyundai','Renault','Toyota','Honda','Nissan','Jeep','Peugeot','Citroën','Ford']`
 
 - [ ] **Step 1: Escrever os testes**
 
 ```tsx
-// novo: com FIPE ok → escolhe marca "GM - Chevrolet", depois modelo "Onix 1.0", depois ano "2022 Flex";
-//   preenche Placa 'abc-1d23', Km atual '45200', Km por dia (padrão preenchido '300'), Cor 'Prata';
-//   "Cadastrar carro" → cadastrarVeiculo(frota.id, {placa:'ABC1D23', marca:'GM - Chevrolet', modelo:'Onix 1.0',
-//     ano_modelo:2022, cor:'Prata', fipe_codigo:'<codigo do modelo>', km_atual:45200, km_dia_estimado:300})
-//   e navega para /carros/{id}/itens
-// listarMarcas → null (FIPE fora) → aparece o aviso 'Não foi possível carregar a lista de modelos. Digite os dados do carro.'
-//   e campos de texto Marca/Modelo/Ano; cadastro segue com fipe_codigo null                    (Review Focus 2)
-// link "Não encontrei meu modelo" também troca para os campos de texto
-// validações: placa inválida → 'Placa inválida.'; km vazio → 'Informe o km atual.'; ano fora de 1980..ano atual+1 → 'Ano inválido.'
-// cadastrarVeiculo rejeita com erro 23505 → 'Já existe um carro com esta placa na frota.' (o formulário continua preenchido)
+// Campos: Placa, Marca (com sugestões MARCAS_COMUNS em chips, mas também aceita texto livre),
+//   Modelo, Ano, Cor (Seletor com CORES), Km atual, Km por dia (já preenchido '300', com ajuda
+//   'Quanto o carro roda por dia, em média. O app ajusta sozinho com as leituras dos motoristas.')
+// preencher Placa 'abc-1d23', Marca 'Chevrolet' (via chip), Modelo 'Onix 1.0', Ano '2022', Cor 'Prata', Km '45200'
+//   e tocar "Cadastrar carro" → cadastrarVeiculo(frota.id, {placa:'ABC1D23', marca:'Chevrolet', modelo:'Onix 1.0',
+//   ano_modelo:2022, cor:'Prata', km_atual:45200, km_dia_estimado:300}) e navega para /carros/{id}/itens
+// validações: placa inválida → 'Placa inválida.'; marca ou modelo vazio → 'Informe a marca e o modelo.';
+//   km vazio → 'Informe o km atual.'; ano fora de 1980..ano atual+1 → 'Ano inválido.'
+// cadastrarVeiculo rejeita com o erro 23505 → 'Já existe um carro com esta placa na frota.' (o formulário continua preenchido)  (Review Focus 1)
 ```
 
 `mensagemErro` ganha o mapeamento do código `23505` → "Já existe um carro com esta placa na frota." Adicionar o caso em `erros.test.ts`.
 
 - [ ] **Step 2: Rodar e ver falhar.**
 
-- [ ] **Step 3: Implementar.**
-  - O seletor de marca e modelo é uma lista com busca: um `Campo` filtra a `FlatList` por `nome`, sem diferenciar maiúsculas de minúsculas.
-  - O botão "Adicionar carro" no painel abre esta tela.
+- [ ] **Step 3: Implementar.** O botão "Adicionar carro" no painel abre esta tela.
 
 - [ ] **Step 4: Verificar** — tsc + jest → PASS.
 
-- [ ] **Step 5: Commit** (`feat(app): cadastro de carro com FIPE`)
+- [ ] **Step 5: Commit** (`feat(app): cadastro de carro`)
 
 ---
 
