@@ -1,9 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { criarPedido } from '@/api/manutencao';
 import { buscarVeiculo, listarItens, previsaoItens, resumoFrota } from '@/api/veiculos';
 import PedidoManutencao from '@/app/(dono)/carros/[id]/pedido';
+import { criarClienteDeTeste, renderComCliente } from '@/testes/renderComCliente';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
@@ -41,25 +42,16 @@ let client: QueryClient;
 let invalidar: jest.SpyInstance;
 
 async function renderizar() {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } },
-  });
+  client = criarClienteDeTeste();
   invalidar = jest.spyOn(client, 'invalidateQueries');
-  await render(
-    <QueryClientProvider client={client}>
-      <PedidoManutencao />
-    </QueryClientProvider>,
-  );
+  await renderComCliente(<PedidoManutencao />, client);
   await screen.findByText('Óleo do motor');
 }
 
 const marcado = (nome: string) =>
   screen.getByRole('checkbox', { name: nome }).props.accessibilityState?.checked ?? false;
 
-afterEach(() => {
-  client?.clear();
-  jest.restoreAllMocks();
-});
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(() => {
   jest.clearAllMocks();

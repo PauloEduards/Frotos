@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { urlsAssinadas } from '@/api/fotos';
 import { minhaFrota } from '@/api/frota';
@@ -15,6 +15,7 @@ import {
   type ServicoRevisao,
 } from '@/api/pendencias';
 import Pendencias from '@/app/(dono)/(abas)/pendencias';
+import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
@@ -76,15 +77,9 @@ const ocorrencia: OcorrenciaAberta = {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <Pendencias />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<Pendencias />));
 }
 
-afterEach(() => client?.clear());
 
 /** Após uma ação bem-sucedida a tela recarrega as pendências; espera isso terminar antes do teste acabar. */
 async function esperarAtualizacao() {

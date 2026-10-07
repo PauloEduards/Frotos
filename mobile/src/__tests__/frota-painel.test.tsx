@@ -1,10 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert, Share } from 'react-native';
 
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
 import { resumoFrota, type ResumoCarro } from '@/api/veiculos';
 import PainelFrota from '@/app/(dono)/(abas)/index';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -34,12 +35,7 @@ const frota: Frota = {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <PainelFrota />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<PainelFrota />));
 }
 
 type BotaoAlerta = { text: string; style?: string; onPress?: () => void | Promise<void> };
@@ -47,7 +43,6 @@ type BotaoAlerta = { text: string; style?: string; onPress?: () => void | Promis
 let alertSpy: jest.SpyInstance;
 let shareSpy: jest.SpyInstance;
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

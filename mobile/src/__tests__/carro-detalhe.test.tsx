@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { urlsAssinadas } from '@/api/fotos';
@@ -19,6 +19,7 @@ import {
   type Vinculo,
 } from '@/api/veiculos';
 import DetalheCarro from '@/app/(dono)/carros/[id]/index';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -83,17 +84,9 @@ function item(extra: Partial<PrevisaoItem> & { nome: string }): PrevisaoItem {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } },
-  });
-  await render(
-    <QueryClientProvider client={client}>
-      <DetalheCarro />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<DetalheCarro />));
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

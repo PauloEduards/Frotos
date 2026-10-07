@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import {
   adicionarItem,
@@ -10,6 +10,7 @@ import {
   type ItemVeiculo,
 } from '@/api/veiculos';
 import ItensDoCarro from '@/app/(dono)/carros/[id]/itens';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'v1' }) }));
 jest.mock('@/lib/cliente', () => ({ supabase: {} }));
@@ -64,14 +65,7 @@ const correia: ItemVeiculo = {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } },
-  });
-  await render(
-    <QueryClientProvider client={client}>
-      <ItensDoCarro />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<ItensDoCarro />));
   await screen.findByText('Óleo do motor');
 }
 
@@ -88,7 +82,6 @@ async function esperarSugestao() {
   });
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -127,13 +120,7 @@ describe('lista', () => {
 
   it('erro ao carregar mostra a mensagem e tenta de novo', async () => {
     listarMock.mockRejectedValueOnce({ code: '42501', message: 'x' });
-    await render(
-      <QueryClientProvider
-        client={(client = new QueryClient({ defaultOptions: { queries: { retry: false } } }))}
-      >
-        <ItensDoCarro />
-      </QueryClientProvider>,
-    );
+    await renderComCliente(<ItensDoCarro />);
     expect(await screen.findByText('Você não tem permissão para isso.')).toBeTruthy();
     await fireEvent.press(screen.getByText('Tentar de novo'));
     expect(await screen.findByText('Óleo do motor')).toBeTruthy();

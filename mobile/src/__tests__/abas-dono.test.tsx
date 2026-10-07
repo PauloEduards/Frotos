@@ -1,10 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { waitFor } from '@testing-library/react-native';
 
 import { contarNaoLidos } from '@/api/avisos';
 import { minhaFrota } from '@/api/frota';
 import { contarPendencias } from '@/api/pendencias';
 import AbasDono from '@/app/(dono)/(abas)/_layout';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockOpcoes: Record<string, { tabBarBadge?: number }> = {};
 
@@ -28,15 +29,9 @@ const naoLidosMock = contarNaoLidos as jest.Mock;
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <AbasDono />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<AbasDono />));
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

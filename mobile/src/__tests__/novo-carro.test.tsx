@@ -1,9 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { minhaFrota, type Frota } from '@/api/frota';
 import { cadastrarVeiculo } from '@/api/veiculos';
 import NovoCarro from '@/app/(dono)/carros/novo';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: jest.fn() }) }));
@@ -31,14 +32,7 @@ const frota: Frota = {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } },
-  });
-  await render(
-    <QueryClientProvider client={client}>
-      <NovoCarro />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<NovoCarro />));
 }
 
 async function renderizarFormulario() {
@@ -58,7 +52,6 @@ async function preencher(
   await fireEvent.changeText(screen.getByLabelText('Km atual'), v.km);
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

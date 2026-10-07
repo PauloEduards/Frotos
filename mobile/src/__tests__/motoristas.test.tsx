@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import {
@@ -11,6 +11,7 @@ import {
   type Membro,
 } from '@/api/frota';
 import Motoristas from '@/app/(dono)/(abas)/motoristas';
+import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
 jest.mock('@/api/frota', () => ({
@@ -48,15 +49,9 @@ let client: QueryClient;
 let alertSpy: jest.SpyInstance;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <Motoristas />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<Motoristas />));
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

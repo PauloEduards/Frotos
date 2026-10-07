@@ -1,9 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { pedidosAbertos, registrarServico } from '@/api/manutencao';
 import { listarItens, previsaoItens } from '@/api/veiculos';
 import RegistrarServico from '@/app/(dono)/carros/[id]/servico';
+import { criarClienteDeTeste, renderComCliente } from '@/testes/renderComCliente';
 
 let mockParams: Record<string, string> = { id: 'v1' };
 const mockBack = jest.fn();
@@ -43,25 +44,16 @@ let client: QueryClient;
 let invalidar: jest.SpyInstance;
 
 async function renderizar() {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } },
-  });
+  client = criarClienteDeTeste();
   invalidar = jest.spyOn(client, 'invalidateQueries');
-  await render(
-    <QueryClientProvider client={client}>
-      <RegistrarServico />
-    </QueryClientProvider>,
-  );
+  await renderComCliente(<RegistrarServico />, client);
   await screen.findByText('Óleo do motor');
 }
 
 const marcado = (nome: string) =>
   screen.getByRole('checkbox', { name: nome }).props.accessibilityState?.checked ?? false;
 
-afterEach(() => {
-  client?.clear();
-  jest.restoreAllMocks();
-});
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -1,8 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { atualizarFrota, minhaFrota, type Frota } from '@/api/frota';
 import Configuracoes from '@/app/(dono)/configuracoes';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn(), atualizarFrota: jest.fn() }));
 
@@ -23,15 +24,9 @@ const frota: Frota = {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <Configuracoes />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<Configuracoes />));
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();

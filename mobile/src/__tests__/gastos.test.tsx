@@ -1,9 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { minhaFrota } from '@/api/frota';
 import { gastosRealizados, projecaoGastos, type LinhaProjecao, type LinhaRealizado } from '@/api/gastos';
 import Gastos from '@/app/(dono)/(abas)/gastos';
+import { renderComCliente } from '@/testes/renderComCliente';
 
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/gastos', () => ({ projecaoGastos: jest.fn(), gastosRealizados: jest.fn() }));
@@ -39,12 +39,7 @@ const realizado: LinhaRealizado[] = [
 ];
 
 function renderizar() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <Gastos />
-    </QueryClientProvider>,
-  );
+  return renderComCliente(<Gastos />);
 }
 
 beforeEach(() => {

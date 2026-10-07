@@ -1,8 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { carroDoItem, listarAvisos, marcarLido, marcarTodosLidos, type Aviso } from '@/api/avisos';
 import Avisos from '@/app/(dono)/(abas)/avisos';
+import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
 const mockPush = jest.fn();
@@ -41,15 +42,9 @@ function aviso(extra: Partial<Aviso>): Aviso {
 let client: QueryClient;
 
 async function renderizar() {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-  await render(
-    <QueryClientProvider client={client}>
-      <Avisos />
-    </QueryClientProvider>,
-  );
+  ({ client } = await renderComCliente(<Avisos />));
 }
 
-afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();
