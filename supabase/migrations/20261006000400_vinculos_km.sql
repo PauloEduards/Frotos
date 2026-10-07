@@ -113,20 +113,35 @@ grant insert (assignment_id, momento, posicao, path, capturado_em) on public.ins
 insert into storage.buckets (id, name, public) values ('fotos', 'fotos', false)
 on conflict (id) do nothing;
 
+-- Primeiro segmento do caminho como uuid; null se não for um uuid válido (evita 22P02 nas políticas).
+create or replace function public.fleet_id_do_objeto(p_name text)
+returns uuid
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when (storage.foldername(p_name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then ((storage.foldername(p_name))[1])::uuid
+  end;
+$$;
+
+grant execute on function public.fleet_id_do_objeto(text) to authenticated;
+
 create policy fotos_select on storage.objects
   for select to authenticated
   using (
     bucket_id = 'fotos'
-    and (public.e_dono_frota(((storage.foldername(name))[1])::uuid)
-         or public.e_membro_ativo(((storage.foldername(name))[1])::uuid))
+    and (public.e_dono_frota(public.fleet_id_do_objeto(name))
+         or public.e_membro_ativo(public.fleet_id_do_objeto(name)))
   );
 
 create policy fotos_insert on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'fotos'
-    and (public.e_dono_frota(((storage.foldername(name))[1])::uuid)
-         or public.e_membro_ativo(((storage.foldername(name))[1])::uuid))
+    and (public.e_dono_frota(public.fleet_id_do_objeto(name))
+         or public.e_membro_ativo(public.fleet_id_do_objeto(name)))
   );
 
 -- ---------- Funções ----------
@@ -180,6 +195,7 @@ declare
   v_dias numeric;
   v_suspeito boolean := false;
   v_leitura public.odometer_readings;
+  v_capturado timestamptz := coalesce(p_capturado_em, now());
 begin
   select * into v_veiculo from public.vehicles where id = p_vehicle_id for update;
   if not found then
@@ -197,6 +213,9 @@ begin
   if p_km is null or p_km < 0 then
     perform public.erro('VALOR_INVALIDO', 'Informe um km válido.');
   end if;
+  if v_capturado > now() + interval '10 minutes' then
+    perform public.erro('HORARIO_INVALIDO', 'O horário da leitura está no futuro. Confira o relógio do celular.');
+  end if;
 
   if p_origem <> 'correcao_dono' then
     if p_km < v_veiculo.km_atual then
@@ -206,7 +225,7 @@ begin
 
     select max(capturado_em) into v_ultima from public.odometer_readings where vehicle_id = p_vehicle_id;
     if v_ultima is not null then
-      v_dias := greatest(1, extract(epoch from p_capturado_em - v_ultima) / 86400.0);
+      v_dias := greatest(1, extract(epoch from v_capturado - v_ultima) / 86400.0);
       if p_km - v_veiculo.km_atual > v_frota.limite_salto_km_dia * v_dias then
         if p_foto_painel_path is null then
           perform public.erro('FOTO_PAINEL_OBRIGATORIA',
@@ -219,7 +238,7 @@ begin
   end if;
 
   insert into public.odometer_readings (vehicle_id, autor_id, km, origem, foto_painel_path, salto_suspeito, capturado_em)
-  values (p_vehicle_id, auth.uid(), p_km, p_origem, p_foto_painel_path, v_suspeito, p_capturado_em)
+  values (p_vehicle_id, auth.uid(), p_km, p_origem, p_foto_painel_path, v_suspeito, v_capturado)
   returning * into v_leitura;
 
   update public.vehicles set km_atual = p_km where id = p_vehicle_id;

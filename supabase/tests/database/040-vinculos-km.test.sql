@@ -1,5 +1,5 @@
 begin;
-select plan(35);
+select plan(41);
 
 select tests.cenario_basico() as c \gset
 select (:'c'::jsonb->>'dono')::uuid as dono,
@@ -129,6 +129,27 @@ select lives_ok(format($$insert into storage.objects (bucket_id, name, owner) va
   :'f' || '/' || :'c1' || '/inspecao/x.jpg', :'mb'), '17 upload na própria frota');
 select throws_ok(format($$insert into storage.objects (bucket_id, name, owner) values ('fotos', %L, %L)$$,
   gen_random_uuid()::text || '/' || :'c1' || '/inspecao/x.jpg', :'mb'), '42501', null, '17 outra frota bloqueado');
+select tests.sair();
+
+-- 18 caminhos malformados e frota alheia
+select tests.sair();
+insert into storage.objects (bucket_id, name) values ('fotos', 'lixo/x.jpg');
+select tests.criar_usuario('outro-dono@t.com', 'proprietario', 'Outro') as dono_b \gset
+select tests.entrar_como(:'dono_b');
+select id as fb from public.criar_frota('Frota B') \gset
+select tests.sair();
+insert into storage.objects (bucket_id, name) values ('fotos', :'fb' || '/x/inspecao/b.jpg');
+select tests.entrar_como(:'mb');
+select lives_ok($$select count(*) from storage.objects where bucket_id = 'fotos'$$, '18 objeto malformado não quebra a listagem');
+select is((select count(*)::int from storage.objects where bucket_id = 'fotos' and name = :'fb' || '/x/inspecao/b.jpg'), 0, '18 não vê objeto de outra frota');
+select is((select count(*)::int from storage.objects where bucket_id = 'fotos' and name = :'f' || '/' || :'c1' || '/inspecao/x.jpg'), 1, '18 vê objeto da própria frota');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('fotos', 'lixo/y.jpg')$$, '42501', null, '18 insert malformado bloqueado');
+
+-- 19 horário da leitura
+select tests.sair();
+select tests.entrar_como(:'dono');
+select throws_ok(format($$select public.registrar_km(%L, 9400, 'atualizacao', null, now() + interval '200 days')$$, :'c1'), 'P0001', 'HORARIO_INVALIDO', '19 futuro rejeitado');
+select ok((select capturado_em between now() - interval '1 minute' and now() + interval '1 minute' from public.registrar_km(:'c1', 9400, 'atualizacao', null, null)), '19 null vira now()');
 select tests.sair();
 
 select * from finish();
