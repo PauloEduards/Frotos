@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { Link, Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { minhaFrota } from '@/api/frota';
+import { contarPendencias } from '@/api/pendencias';
 import { cores } from '@/lib/tema';
 
 type NomeIcone = React.ComponentProps<typeof Ionicons>['name'];
@@ -30,6 +33,16 @@ function BotaoConfiguracoes() {
 }
 
 export default function AbasDono() {
+  const frota = useQuery({ queryKey: ['frota'], queryFn: minhaFrota });
+  const fleetId = frota.data?.id;
+  const total = useQuery({
+    queryKey: ['pendencias', 'contagem', fleetId],
+    queryFn: () => contarPendencias(fleetId as string),
+    enabled: fleetId !== undefined,
+    refetchInterval: 60_000,
+  });
+  const pendencias = total.data ?? 0;
+
   return (
     <Tabs
       screenOptions={{
@@ -44,6 +57,7 @@ export default function AbasDono() {
           options={{
             title: a.titulo,
             tabBarIcon: ({ color, size }) => <Ionicons name={a.icone} size={size} color={color} />,
+            ...(a.nome === 'pendencias' ? { tabBarBadge: pendencias > 0 ? pendencias : undefined } : {}),
             ...(a.nome === 'index' ? { headerRight: BotaoConfiguracoes } : {}),
           }}
         />
