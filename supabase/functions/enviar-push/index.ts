@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
+  autorizado,
   dividirEmLotes,
   montarMensagensExpo,
   type NotificacaoPendente,
@@ -13,11 +14,13 @@ const json = (corpo: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-Deno.serve(async () => {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+Deno.serve(async (req) => {
+  const chave = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  if (!autorizado(req.headers.get('Authorization'), chave)) {
+    return json({ erro: 'NAO_AUTORIZADO' }, 401);
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, chave);
 
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
@@ -65,6 +68,7 @@ Deno.serve(async () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(lote),
+        signal: AbortSignal.timeout(10_000),
       });
     } catch (e) {
       return json({ erro: `Falha ao chamar a Expo: ${(e as Error).message}`, enviadas }, 502);

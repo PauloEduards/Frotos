@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  autorizado,
   dividirEmLotes,
   montarMensagensExpo,
   type NotificacaoPendente,
@@ -54,5 +55,24 @@ describe('dividirEmLotes', () => {
   });
   it('vazio', () => {
     expect(dividirEmLotes([])).toEqual([]);
+  });
+});
+
+describe('autorizado', () => {
+  const chave = 'chave-service-role';
+  it('aceita Bearer com a chave exata', () => {
+    expect(autorizado(`Bearer ${chave}`, chave)).toBe(true);
+  });
+  it('rejeita header ausente, chave errada ou formato diferente', () => {
+    expect(autorizado(null, chave)).toBe(false);
+    expect(autorizado('', chave)).toBe(false);
+    expect(autorizado('Bearer outra', chave)).toBe(false);
+    expect(autorizado(chave, chave)).toBe(false);
+    expect(autorizado(`bearer ${chave}`, chave)).toBe(false);
+    expect(autorizado(`Bearer ${chave} `, chave)).toBe(false);
+  });
+  it('rejeita tudo quando a chave do ambiente está vazia', () => {
+    expect(autorizado('Bearer ', '')).toBe(false);
+    expect(autorizado('Bearer undefined', '')).toBe(false);
   });
 });

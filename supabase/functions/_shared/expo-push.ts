@@ -51,3 +51,16 @@ export function dividirEmLotes<T>(itens: T[], tamanho = 100): T[][] {
   }
   return lotes;
 }
+
+// Só aceita chamadas com "Authorization: Bearer <service role key>" (o job do pg_cron).
+// Comparação em tempo constante para o tamanho da chave.
+export function autorizado(header: string | null, chave: string): boolean {
+  if (!chave || header === null) return false;
+  const esperado = `Bearer ${chave}`;
+  if (header.length !== esperado.length) return false;
+  let dif = 0;
+  for (let i = 0; i < esperado.length; i++) {
+    dif |= header.charCodeAt(i) ^ esperado.charCodeAt(i);
+  }
+  return dif === 0;
+}

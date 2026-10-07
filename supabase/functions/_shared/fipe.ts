@@ -94,6 +94,8 @@ export async function buscarComCache(
   }
   try {
     const dados = normalizar(c, await deps.buscar(urlFipe(c)));
+    // Lista vazia não é uma resposta útil: trata como falha para não gravar cache "fresco" vazio.
+    if (dados.length === 0) throw new Error('Lista vazia da FIPE');
     try {
       await deps.salvarCache(chave, dados);
     } catch {

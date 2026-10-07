@@ -133,4 +133,18 @@ describe('buscarComCache', () => {
     const r = await buscarComCache({ tipo: 'marcas' }, d, agora);
     expect(r).toEqual({ status: 503, corpo: { erro: 'FIPE_INDISPONIVEL' } });
   });
+
+  it('lista vazia não é cacheada e, sem cache, devolve 503', async () => {
+    const { d, chamadas } = deps({ resposta: [] });
+    const r = await buscarComCache({ tipo: 'marcas' }, d, agora);
+    expect(r).toEqual({ status: 503, corpo: { erro: 'FIPE_INDISPONIVEL' } });
+    expect(chamadas.salvar).toEqual([]);
+  });
+
+  it('lista vazia com cache vencido devolve o vencido', async () => {
+    const { d, chamadas } = deps({ cache: { dados: velho, atualizadoEm: diasAtras(60) }, resposta: { modelos: [] } });
+    const r = await buscarComCache({ tipo: 'modelos', marca: '23' }, d, agora);
+    expect(r).toEqual({ status: 200, corpo: velho });
+    expect(chamadas.salvar).toEqual([]);
+  });
 });
