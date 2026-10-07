@@ -11,6 +11,7 @@ import { Seletor } from '@/componentes/Seletor';
 import { mensagemErro } from '@/lib/erros';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
+import { useSair } from '@/sessao/useSair';
 
 type Modo = Frota['modo_manutencao'];
 type NumeroCampo =
@@ -53,6 +54,7 @@ export default function Configuracoes() {
         <View style={estilos.conteudo}>
           <MensagemErro texto={mensagemErro(frota.error)} />
           <Botao titulo="Tentar de novo" onPress={() => void frota.refetch()} />
+          <Sair />
         </View>
       </View>
     );
@@ -63,6 +65,7 @@ export default function Configuracoes() {
       <View style={estilos.fundo}>
         <View style={estilos.conteudo}>
           <Text style={estilos.apoio}>Crie sua frota na aba Frota para ajustar as configurações.</Text>
+          <Sair />
         </View>
       </View>
     );
@@ -147,8 +150,19 @@ function Formulario({ frota }: { frota: Frota }) {
         {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
         {salvo ? <Text style={estilos.sucesso}>Configurações salvas.</Text> : null}
         <Botao titulo="Salvar" onPress={aoSalvar} carregando={salvar.isPending} />
+        <Sair />
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function Sair() {
+  const { aoSair, erroSair, saindo } = useSair();
+  return (
+    <View style={estilos.sair}>
+      {erroSair ? <MensagemErro texto={erroSair} /> : null}
+      <Botao titulo="Sair" variante="secundario" onPress={() => void aoSair()} carregando={saindo} />
+    </View>
   );
 }
 
@@ -157,4 +171,5 @@ const estilos = StyleSheet.create({
   conteudo: { padding: espaco.xl, gap: espaco.lg },
   apoio: { fontSize: 15, color: cores.textoSecundario },
   sucesso: { fontSize: 14, color: '#2E7D32' },
+  sair: { gap: espaco.sm, marginTop: espaco.lg },
 });

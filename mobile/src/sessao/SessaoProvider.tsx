@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
-import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { buscarPerfil, type Perfil } from '@/api/auth';
 import { supabase } from '@/lib/cliente';
@@ -14,6 +15,7 @@ export type ValorSessao = {
 export const SessaoContext = createContext<ValorSessao | null>(null);
 
 export function SessaoProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [sessaoPronta, setSessaoPronta] = useState(false);
   const [sessao, setSessao] = useState<Session | null>(null);
   // Perfil guardado junto do id do usuário a que pertence, para nunca expor o perfil de outro usuário.
@@ -46,14 +48,25 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const usuarioId = sessao?.user.id ?? null;
+  // Usuário atual para quem a resposta de um carregamento chega: ignora respostas de outro usuário.
+  const usuarioAtual = useRef<string | null>(usuarioId);
+  const usuarioAnterior = useRef<string | null>(usuarioId);
+
+  useEffect(() => {
+    usuarioAtual.current = usuarioId;
+    // Saiu ou trocou de usuário: nada do cache do anterior pode aparecer para o próximo.
+    if (usuarioAnterior.current !== usuarioId) queryClient.clear();
+    usuarioAnterior.current = usuarioId;
+  }, [usuarioId, queryClient]);
 
   const carregarPerfil = useCallback(async (id: string) => {
+    let carregado: Perfil | null;
     try {
-      const p = await buscarPerfil(id);
-      setPerfilCarregado({ id, perfil: p });
+      carregado = await buscarPerfil(id);
     } catch {
-      setPerfilCarregado({ id, perfil: null });
+      carregado = null;
     }
+    if (usuarioAtual.current === id) setPerfilCarregado({ id, perfil: carregado });
   }, []);
 
   useEffect(() => {

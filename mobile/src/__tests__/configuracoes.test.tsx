@@ -1,11 +1,13 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { sair } from '@/api/auth';
 import { atualizarFrota, minhaFrota, type Frota } from '@/api/frota';
 import Configuracoes from '@/app/(dono)/configuracoes';
 import { renderComCliente } from '@/testes/renderComCliente';
 
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn(), atualizarFrota: jest.fn() }));
+jest.mock('@/api/auth', () => ({ sair: jest.fn() }));
 
 const minhaFrotaMock = minhaFrota as jest.Mock;
 const atualizarFrotaMock = atualizarFrota as jest.Mock;
@@ -105,6 +107,28 @@ describe('configurações da frota', () => {
         expect.objectContaining({ limiar_laranja_km: 0 }),
       ),
     );
+  });
+
+  it('Sair encerra a sessão', async () => {
+    (sair as jest.Mock).mockResolvedValue(undefined);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Sair'));
+    await waitFor(() => expect(sair).toHaveBeenCalledTimes(1));
+  });
+
+  it('falha ao sair mostra a mensagem', async () => {
+    (sair as jest.Mock).mockRejectedValue({ message: 'Network request failed' });
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Sair'));
+    expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
+  });
+
+  it('sem frota também permite sair', async () => {
+    minhaFrotaMock.mockResolvedValue(null);
+    (sair as jest.Mock).mockResolvedValue(undefined);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Sair'));
+    await waitFor(() => expect(sair).toHaveBeenCalledTimes(1));
   });
 
   it('falha ao salvar mostra a mensagem de erro', async () => {
