@@ -120,7 +120,8 @@ describe('Pendências', () => {
     expect(screen.getByText('ABC1D23 · Bruno · 05/10/2026')).toBeOnTheScreen();
     expect(screen.getByText('Pneus (rodízio e alinhamento) · R$ 210,00')).toBeOnTheScreen();
     expect(screen.getByText('R$ 210,00')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Nota do serviço ABC1D23')).toBeOnTheScreen();
+    // As fotos chegam depois dos cartões (assinatura separada).
+    expect(await screen.findByLabelText('Nota do serviço ABC1D23')).toBeOnTheScreen();
     expect(screen.queryByText('Nenhuma pendência. Tudo em dia!')).toBeNull();
 
     await fireEvent.press(screen.getByText('Aprovar'));
@@ -221,7 +222,7 @@ describe('Pendências', () => {
     expect(screen.getByText('+2.000 km em 1 dia')).toBeOnTheScreen();
     expect(screen.getByText('ABC1D23 · Bruno · 06/10/2026')).toBeOnTheScreen();
     expect(screen.getByText('Painel marcando 64.000 km')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Foto do painel ABC1D23')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Foto do painel ABC1D23')).toBeOnTheScreen();
   });
 
   it('usa "dias" no plural e um texto neutro sem leitura anterior', async () => {
@@ -243,7 +244,7 @@ describe('Pendências', () => {
     expect(screen.getByText('Acidente grave')).toHaveStyle({ color: '#C62828' });
     expect(screen.getByText('Barulho/mecânico')).not.toHaveStyle({ color: '#C62828' });
     expect(screen.getAllByText('Bati na traseira de um caminhão.')).toHaveLength(2);
-    expect(screen.getByLabelText('Foto 1 da ocorrência XYZ9K88')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Foto 1 da ocorrência XYZ9K88')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getAllByText('Marcar como resolvida')[0]);
     await waitFor(() => expect(m.resolver).toHaveBeenCalledWith('o1'));
