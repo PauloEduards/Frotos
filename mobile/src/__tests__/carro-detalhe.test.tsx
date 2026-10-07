@@ -448,6 +448,22 @@ describe('Pedidos abertos', () => {
   });
 });
 
+describe('erro ao cancelar pedido', () => {
+  it('aparece dentro da seção Pedidos abertos', async () => {
+    pedidosMock.mockResolvedValue([
+      { id: 'p1', itens: ['x'], prazo: '2026-10-20', observacao: null, driver_id: 'm1' },
+    ]);
+    cancelarMock.mockRejectedValue({ code: 'P0001', message: 'X', details: 'Este pedido já foi concluído.' });
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Cancelar'));
+    const botoes = alertSpy.mock.calls[0][2] as BotaoAlerta[];
+    await botoes.find((b) => b.style === 'destructive')?.onPress?.();
+    const erro = await screen.findByText('Este pedido já foi concluído.');
+    const titulo = screen.getByText('Pedidos abertos');
+    expect(erro.parent).toBe(titulo.parent);
+  });
+});
+
 describe('menu Mais', () => {
   async function abrirMais() {
     await renderizar();

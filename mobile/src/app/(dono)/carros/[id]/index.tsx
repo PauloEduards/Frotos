@@ -93,6 +93,7 @@ export default function DetalheCarro() {
   const [maisAberto, setMaisAberto] = useState(false);
   const [corrigindo, setCorrigindo] = useState(false);
   const [kmCorreto, setKmCorreto] = useState('');
+  const [erroPedido, setErroPedido] = useState<string | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
   async function aposAcao() {
@@ -105,7 +106,7 @@ export default function DetalheCarro() {
   const cancelar = useMutation({
     mutationFn: (pedidoId: string) => cancelarPedido(pedidoId),
     onSuccess: aposAcao,
-    onError: (e) => setErroAcao(mensagemErro(e)),
+    onError: (e) => setErroPedido(mensagemErro(e)),
   });
   const corrigir = useMutation({
     mutationFn: (km: number) => corrigirKm(id, km),
@@ -126,7 +127,7 @@ export default function DetalheCarro() {
   });
 
   function pedirCancelamento(pedidoId: string) {
-    setErroAcao(null);
+    setErroPedido(null);
     Alert.alert('Cancelar pedido?', 'O motorista deixa de receber este pedido.', [
       { text: 'Voltar', style: 'cancel' },
       { text: 'Cancelar pedido', style: 'destructive', onPress: () => cancelar.mutate(pedidoId) },
@@ -228,16 +229,17 @@ export default function DetalheCarro() {
         titulo="Pedidos abertos"
         consulta={pedidosQ}
         vazio="Nenhum pedido aberto."
-        renderizar={(lista) =>
-          lista.map((p) => (
+        renderizar={(lista) => [
+          ...(erroPedido ? [<MensagemErro key="erro-pedido" texto={erroPedido} />] : []),
+          ...lista.map((p) => (
             <LinhaPedido
               key={p.id}
               pedido={p}
               nomes={nomesDosItens(previsao.data)}
               onCancelar={() => pedirCancelamento(p.id)}
             />
-          ))
-        }
+          )),
+        ]}
       />
 
       <Secao
@@ -306,9 +308,9 @@ export default function DetalheCarro() {
             />
           </View>
           <Botao titulo="Desativar carro" variante="perigo" onPress={pedirDesativacao} />
+          {erroAcao ? <MensagemErro texto={erroAcao} /> : null}
         </View>
       ) : null}
-      {erroAcao ? <MensagemErro texto={erroAcao} /> : null}
     </ScrollView>
   );
 }

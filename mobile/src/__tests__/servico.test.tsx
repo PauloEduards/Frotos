@@ -161,6 +161,17 @@ describe('registrar serviço', () => {
     });
   });
 
+  it('pedido que não está mais aberto avisa, não envia requestId e desabilita o envio', async () => {
+    mockParams = { id: 'v1', pedido: 'p9' };
+    pedidosMock.mockResolvedValue([]);
+    await renderizar();
+    expect(screen.getByText('Este pedido não está mais aberto.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Registrar' }).props.accessibilityState.disabled).toBe(true);
+    await preencher();
+    await fireEvent.press(screen.getByText('Registrar'));
+    expect(registrarMock).not.toHaveBeenCalled();
+  });
+
   it('erro de negócio mostra o DETAIL e mantém o formulário preenchido', async () => {
     registrarMock.mockRejectedValue({
       code: 'P0001',

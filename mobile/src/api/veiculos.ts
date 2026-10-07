@@ -198,7 +198,8 @@ export type Veiculo = {
 export async function buscarVeiculo(id: string): Promise<Veiculo> {
   const { data, error } = await supabase
     .from('vehicles')
-    .select('id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado, exige_aprovacao_sempre',
+    .select(
+      'id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado, exige_aprovacao_sempre',
     )
     .eq('id', id)
     .single();

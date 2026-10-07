@@ -81,6 +81,8 @@ describe('pedido de manutenção', () => {
     expect(
       await screen.findByText('Este carro está sem motorista. O pedido vai para quem estiver com ele.'),
     ).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Prazo'), '15/10/2026');
+    expect(screen.getByRole('button', { name: 'Enviar pedido' }).props.accessibilityState.disabled).toBe(true);
     await fireEvent.press(screen.getByText('Enviar pedido'));
     expect(criarMock).not.toHaveBeenCalled();
   });

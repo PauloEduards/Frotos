@@ -73,6 +73,7 @@ export default function RegistrarServico() {
 
   const itens = (itensQ.data ?? []).filter((i) => i.ativo);
   const doPedido = pedido ? pedidosQ.data?.find((p) => p.id === pedido) : undefined;
+  const pedidoIndisponivel = !!pedido && !doPedido;
   const padrao = new Set(
     doPedido
       ? doPedido.itens
@@ -90,6 +91,7 @@ export default function RegistrarServico() {
   }
 
   function enviar() {
+    if (pedidoIndisponivel) return;
     setErroGeral(null);
     const e: Erros = {};
     const nome = nomeOutro.trim();
@@ -147,8 +149,14 @@ export default function RegistrarServico() {
       <Campo rotulo="Valor total" valor={valor} onChange={setValor} tipo="numero" erro={erros.valor} />
       <Campo rotulo="Oficina (opcional)" valor={oficina} onChange={setOficina} />
 
+      {pedidoIndisponivel ? <MensagemErro texto="Este pedido não está mais aberto." /> : null}
       {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
-      <Botao titulo="Registrar" onPress={enviar} carregando={salvar.isPending} />
+      <Botao
+        titulo="Registrar"
+        onPress={enviar}
+        desabilitado={pedidoIndisponivel}
+        carregando={salvar.isPending}
+      />
     </ScrollView>
   );
 }
