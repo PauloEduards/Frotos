@@ -5,6 +5,8 @@ import { Alert, Share } from 'react-native';
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
 import PainelFrota from '@/app/(dono)/(abas)/index';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/api/frota', () => ({
   minhaFrota: jest.fn(),
   criarFrota: jest.fn(),
@@ -98,6 +100,12 @@ describe('painel com frota', () => {
     expect(await screen.findByText('Código da frota: FRT-TEST')).toBeTruthy();
     expect(screen.getByText('Compartilhar')).toBeTruthy();
     expect(screen.getByText('Gerar novo código')).toBeTruthy();
+  });
+
+  it('Adicionar carro abre o cadastro de carro', async () => {
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Adicionar carro'));
+    expect(mockPush).toHaveBeenCalledWith('/(dono)/carros/novo');
   });
 
   it('Compartilhar abre o Share com a mensagem', async () => {

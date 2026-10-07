@@ -7,13 +7,25 @@ type Props<T extends string> = {
   valor: T;
   onChange: (valor: T) => void;
   rotulo?: string;
+  /** Deixa as opções quebrarem em várias linhas (listas longas). */
+  quebrarLinha?: boolean;
 };
 
-export function Seletor<T extends string>({ opcoes, valor, onChange, rotulo }: Props<T>) {
+export function Seletor<T extends string>({
+  opcoes,
+  valor,
+  onChange,
+  rotulo,
+  quebrarLinha = false,
+}: Props<T>) {
   return (
     <View style={estilos.container}>
       {rotulo ? <Text style={estilos.rotulo}>{rotulo}</Text> : null}
-      <View accessibilityRole="radiogroup" accessibilityLabel={rotulo} style={estilos.linha}>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={rotulo}
+        style={[estilos.linha, quebrarLinha && estilos.linhaQuebra]}
+      >
         {opcoes.map((o) => {
           const marcada = o.valor === valor;
           return (
@@ -22,7 +34,11 @@ export function Seletor<T extends string>({ opcoes, valor, onChange, rotulo }: P
               accessibilityRole="radio"
               accessibilityState={{ selected: marcada }}
               onPress={() => onChange(o.valor)}
-              style={[estilos.opcao, marcada && estilos.opcaoMarcada]}
+              style={[
+                estilos.opcao,
+                quebrarLinha && estilos.opcaoQuebra,
+                marcada && estilos.opcaoMarcada,
+              ]}
             >
               <Text style={[estilos.texto, marcada && estilos.textoMarcado]}>{o.rotulo}</Text>
             </Pressable>
@@ -37,6 +53,8 @@ const estilos = StyleSheet.create({
   container: { gap: espaco.xs },
   rotulo: { fontSize: 14, color: cores.textoSecundario },
   linha: { flexDirection: 'row', gap: espaco.sm },
+  linhaQuebra: { flexWrap: 'wrap' },
+  opcaoQuebra: { flexGrow: 1, flexBasis: 'auto', minWidth: 88 },
   opcao: {
     flex: 1,
     minHeight: 48,

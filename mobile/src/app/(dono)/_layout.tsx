@@ -17,6 +17,10 @@ export default function DonoLayout() {
         name="configuracoes"
         options={{ headerShown: true, title: 'Configurações', headerBackTitle: 'Voltar' }}
       />
+      <Stack.Screen
+        name="carros/novo"
+        options={{ headerShown: true, title: 'Novo carro', headerBackTitle: 'Voltar' }}
+      />
     </Stack>
   );
 }

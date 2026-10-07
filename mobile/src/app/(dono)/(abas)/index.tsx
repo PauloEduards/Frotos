@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
@@ -30,7 +31,14 @@ export default function PainelFrota() {
 
   return (
     <ScrollView style={estilos.fundo} contentContainerStyle={estilos.conteudo}>
-      {frota.data ? <CartaoCodigo frota={frota.data} /> : <CriarFrota />}
+      {frota.data ? (
+        <>
+          <CartaoCodigo frota={frota.data} />
+          <AdicionarCarro />
+        </>
+      ) : (
+        <CriarFrota />
+      )}
     </ScrollView>
   );
 }
@@ -69,6 +77,11 @@ function CriarFrota() {
       <Botao titulo="Criar frota" onPress={aoCriar} carregando={criar.isPending} />
     </>
   );
+}
+
+function AdicionarCarro() {
+  const router = useRouter();
+  return <Botao titulo="Adicionar carro" onPress={() => router.push('/(dono)/carros/novo')} />;
 }
 
 function CartaoCodigo({ frota }: { frota: Frota }) {

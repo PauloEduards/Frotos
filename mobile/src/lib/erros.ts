@@ -37,6 +37,7 @@ export function mensagemErro(e: unknown): string {
 
   if (code === 'P0001') return details || GENERICA;
   if (code === '42501') return 'Você não tem permissão para isso.';
+  if (code === '23505') return 'Já existe um carro com esta placa na frota.';
 
   if (message.includes('Network request failed') || message.includes('Failed to fetch')) {
     return 'Sem conexão com a internet. Tente de novo.';

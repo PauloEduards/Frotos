@@ -20,6 +20,11 @@ describe('mensagemErro', () => {
       'Você não tem permissão para isso.',
     );
   });
+  it('traduz placa duplicada na frota (23505)', () => {
+    expect(mensagemErro({ code: '23505', message: 'duplicate key value' })).toBe(
+      'Já existe um carro com esta placa na frota.',
+    );
+  });
   it('traduz falha de rede', () => {
     expect(mensagemErro(new TypeError('Network request failed'))).toBe(
       'Sem conexão com a internet. Tente de novo.',
