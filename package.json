@@ -6,7 +6,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:types": "supabase gen types typescript --local > mobile/src/lib/database.types.ts"
   },
   "devDependencies": {
     "supabase": "^2.120.0",

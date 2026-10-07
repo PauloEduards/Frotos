@@ -3,3 +3,7 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 .superpowers/
+!.env.example
+mobile/.env
+mobile/node_modules/
+mobile/.expo/
