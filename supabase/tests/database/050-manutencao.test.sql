@@ -1,5 +1,5 @@
 begin;
-select plan(48);
+select plan(54);
 
 select tests.cenario_basico() as c \gset
 select (:'c'::jsonb->>'dono')::uuid as dono,
@@ -16,6 +16,7 @@ select i.id as it_ar from public.vehicle_items i where i.vehicle_id = :'c1' and 
 select i.id as it_comb from public.vehicle_items i where i.vehicle_id = :'c1' and i.nome = 'Filtro de combustível' \gset
 select i.id as it_velas from public.vehicle_items i where i.vehicle_id = :'c1' and i.nome = 'Velas de ignição' \gset
 select i.id as it_fluido from public.vehicle_items i where i.vehicle_id = :'c1' and i.nome = 'Fluido de freio' \gset
+select i.id as it_arref from public.vehicle_items i where i.vehicle_id = :'c1' and i.nome = 'Líquido de arrefecimento' \gset
 select i.id as it_c2 from public.vehicle_items i where i.vehicle_id = :'c2' and i.nome = 'Óleo do motor' \gset
 select public.hoje_brt() as hoje \gset
 
@@ -161,7 +162,7 @@ select tests.entrar_como(:'dono');
 select public.revisar_servico(:'r_ar', 'contestar', 'Valor errado');
 select public.revisar_servico(:'r_comb', 'contestar');
 select tests.sair();
-select is((select ultimo_km from public.vehicle_items where id = :'it_ar'), 8000, '7 contestar volta ao histórico inicial');
+select is((select ultimo_km::text || '/' || ultima_data::text from public.vehicle_items where id = :'it_ar'), '8000/2025-01-10', '7 contestar volta ao histórico inicial (km e data)');
 select ok((select ultimo_km is null and ultima_data is null from public.vehicle_items where id = :'it_comb'), '7 sem histórico volta a null');
 
 -- 8 nota obrigatória
@@ -172,6 +173,28 @@ select tests.sair();
 select tests.entrar_como(:'dono');
 select lives_ok(format($$select public.registrar_servico(%L, jsonb_build_array(jsonb_build_object('vehicle_item_id', %L)), 10500, %L::date, 150)$$, :'c1', :'it_velas', :'hoje'),
   '8 dono sem nota ok');
+select tests.sair();
+
+-- 8b contestar cai para o serviço aprovado anterior
+select tests.entrar_como(:'dono');
+select public.registrar_servico(:'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_arref')),
+  10200, :'hoje'::date - 10, 100);
+select id as r_arref2 from public.registrar_servico(:'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_arref')),
+  10500, :'hoje'::date, 100) \gset
+select public.revisar_servico(:'r_arref2', 'contestar');
+select tests.sair();
+select is((select ultimo_km::text || '/' || ultima_data::text from public.vehicle_items where id = :'it_arref'),
+  '10200/' || (:'hoje'::date - 10)::text, '8b contestar volta ao serviço aprovado anterior');
+
+-- 8c pendente -> recusado e transição inválida
+update public.fleet_members set nivel_manutencao = 'com_aprovacao' where id = :'m1';
+select tests.entrar_como(:'ma');
+select id as r_rec from public.registrar_servico(:'c1', '[{"nome_outro":"Retrovisor"}]'::jsonb,
+  10500, :'hoje'::date, 90, null, null, :'f' || '/' || :'c1' || '/notas/n6.jpg') \gset
+select tests.sair();
+select tests.entrar_como(:'dono');
+select is((select status::text from public.revisar_servico(:'r_rec', 'recusar', 'Sem nota fiscal')), 'recusado', '8c pendente vira recusado');
+select throws_ok(format($$select public.revisar_servico(%L, 'aprovar')$$, :'r_rec'), 'P0001', 'TRANSICAO_INVALIDA', '8c recusado não volta');
 select tests.sair();
 
 -- 9 e 10 km
@@ -257,16 +280,41 @@ select is(public.custo_medio_item(:'it_oleo'), 180::numeric, '18 custo médio 18
 select is(public.custo_medio_item(:'it_fluido'), null, '18 sem serviço é null');
 select tests.sair();
 
--- 19 RLS
+-- 18b auto-vínculo do pedido aberto
+update public.fleets set modo_manutencao = 'proprietario_leva' where id = :'f';
+select tests.entrar_como(:'dono');
+select id as ped5 from public.criar_pedido(:'c1', array[:'it_velas']::uuid[], :'hoje'::date + 3) \gset
+select tests.sair();
 select tests.entrar_como(:'ma');
-select ok((select count(*) from public.maintenance_records where vehicle_id = :'c1') > 0, '19 motorista com vínculo vê serviços');
-select ok((select count(*) from public.maintenance_record_items) > 0, '19 vê itens dos serviços');
+select id as r_auto from public.registrar_servico(:'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_velas')),
+  12100, :'hoje'::date, 150, null, null, :'f' || '/' || :'c1' || '/notas/n7.jpg') \gset
+select tests.sair();
+select is((select request_id from public.maintenance_records where id = :'r_auto'), :'ped5'::uuid, '18b pedido aberto vinculado automaticamente');
+select tests.entrar_como(:'dono');
+select public.revisar_servico(:'r_auto', 'aprovar');
+select tests.sair();
+select is((select status::text from public.maintenance_requests where id = :'ped5'), 'concluido', '18b pedido concluído ao aprovar');
+
+-- 19 RLS
+select tests.entrar_como(:'dono');
+select id as r_dono from public.registrar_servico(:'c1', '[{"nome_outro":"Alinhamento"}]'::jsonb, 12100, :'hoje'::date, 80) \gset
+select tests.sair();
+select tests.entrar_como(:'ma');
+select is((select count(*)::int from public.maintenance_records where id = :'r_dono'), 1, '19 motorista com vínculo vê serviço do dono');
+select is((select count(*)::int from public.maintenance_record_items where record_id = :'r_dono'), 1, '19 vê itens do serviço');
 select throws_ok(format($$insert into public.maintenance_records (vehicle_id, autor_id, km, data, valor_total, status) values (%L, %L, 1, %L, 1, 'aprovado')$$, :'c1', :'ma', :'hoje'),
   '42501', null, '19 sem insert direto');
 select tests.sair();
 select tests.entrar_como(:'mb');
 select is((select count(*)::int from public.maintenance_records where vehicle_id = :'c1'), 0, '19 outro motorista não vê serviços');
 select is((select count(*)::int from public.maintenance_requests where vehicle_id = :'c1' and driver_id = :'ma'), 0, '19 outro motorista não vê pedidos alheios');
+select tests.sair();
+
+-- 3b vínculo aguardando_fotos não tem permissão
+update public.fleets set modo_manutencao = 'motoristas_levam' where id = :'f';
+select tests.entrar_como(:'mb');
+select public.iniciar_retirada(:'c2', 10000);
+select is(public.permissao_registro(:'c2'), 'negado', '3b aguardando_fotos é negado');
 select tests.sair();
 
 -- 16 devolver carro cancela pedido aberto

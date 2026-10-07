@@ -95,6 +95,9 @@ declare
   v_data date;
   v_achou boolean := false;
 begin
+  -- Trava o item antes de ler os serviços, para serializar recálculos concorrentes.
+  perform 1 from public.vehicle_items where id = p_item_id for update;
+
   select r.km, r.data, true into v_km, v_data, v_achou
   from public.maintenance_record_items ri
   join public.maintenance_records r on r.id = ri.record_id
@@ -160,7 +163,7 @@ begin
   loop
     perform public.notificar(
       v_dono, 'pedido_cancelado', 'Pedido de manutenção cancelado',
-      format('O pedido de manutenção do carro %s foi cancelado porque o motorista devolveu o carro.', v_placa),
+      format('O pedido de manutenção do carro %s foi cancelado porque o vínculo do motorista com o carro foi encerrado.', v_placa),
       'maintenance_requests', v_pedido.id);
   end loop;
 
@@ -196,7 +199,10 @@ begin
   if v_frota.owner_id = auth.uid() then
     return 'aprovado';
   end if;
-  if not public.tem_vinculo_ativo(p_vehicle_id) then
+  if not exists (
+    select 1 from public.assignments
+    where vehicle_id = p_vehicle_id and driver_id = auth.uid() and status = 'ativo'
+  ) then
     return 'negado';
   end if;
 
@@ -251,6 +257,7 @@ declare
   v_valor numeric;
   v_registro public.maintenance_records;
   v_linhas jsonb := '[]'::jsonb;
+  v_pedido_id uuid := p_request_id;
 begin
   select * into v_veiculo from public.vehicles where id = p_vehicle_id for update;
   if not found then
@@ -272,6 +279,14 @@ begin
       and (driver_id = auth.uid() or v_dono)
   ) then
     perform public.erro('PEDIDO_INVALIDO', 'Este pedido de manutenção não está mais disponível.');
+  end if;
+
+  -- Sem pedido informado, o motorista vincula o pedido aberto mais antigo do carro.
+  if v_pedido_id is null and not v_dono then
+    select id into v_pedido_id from public.maintenance_requests
+    where vehicle_id = p_vehicle_id and driver_id = auth.uid() and status = 'aberto'
+    order by criado_em, id
+    limit 1;
   end if;
 
   -- 3 itens
@@ -328,7 +343,7 @@ begin
   insert into public.maintenance_records
     (vehicle_id, autor_id, request_id, oficina, km, data, valor_total, nota_foto_path, status)
   values
-    (p_vehicle_id, auth.uid(), p_request_id, p_oficina, p_km, p_data, p_valor_total, p_nota_foto_path,
+    (p_vehicle_id, auth.uid(), v_pedido_id, p_oficina, p_km, p_data, p_valor_total, p_nota_foto_path,
      v_permissao::public.status_servico)
   returning * into v_registro;
 
@@ -338,8 +353,8 @@ begin
 
   if v_registro.status = 'aprovado' then
     perform public.recalcular_itens_do_servico(v_registro.id);
-    if p_request_id is not null then
-      update public.maintenance_requests set status = 'concluido' where id = p_request_id;
+    if v_pedido_id is not null then
+      update public.maintenance_requests set status = 'concluido' where id = v_pedido_id;
     end if;
   end if;
 
