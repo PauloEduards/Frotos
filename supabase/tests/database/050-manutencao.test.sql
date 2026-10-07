@@ -24,7 +24,7 @@ select public.hoje_brt() as hoje \gset
 select tests.entrar_como(:'ma');
 select id as a1 from public.iniciar_retirada(:'c1', 10000) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a1', 'retirada', p, :'f' || '/' || :'c1' || '/inspecao/r' || p || '.jpg', now()
+select :'a1', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a1');
 select tests.sair();
@@ -111,8 +111,8 @@ update public.fleet_members set nivel_manutencao = 'confiavel' where id = :'m1';
 select tests.entrar_como(:'ma');
 select id as r1, status::text as st_r1 from public.registrar_servico(
   :'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_oleo', 'valor', 150.00)),
-  10500, :'hoje'::date, 150, null, 'Oficina X', :'f' || '/' || :'c1' || '/notas/n1.jpg',
-  :'f' || '/' || :'c1' || '/painel/p1.jpg') \gset
+  10500, :'hoje'::date, 150, null, 'Oficina X', tests.criar_foto(:'f', :'c1', 'notas'),
+  tests.criar_foto(:'f', :'c1', 'painel')) \gset
 select tests.sair();
 select is(:'st_r1'::text, 'aprovado', '3 confiável fica aprovado');
 select is((select ultimo_km from public.vehicle_items where id = :'it_oleo'), 10500, '3 óleo ultimo_km 10500');
@@ -123,7 +123,7 @@ update public.fleet_members set nivel_manutencao = 'com_aprovacao' where id = :'
 select tests.entrar_como(:'ma');
 select id as r2, status::text as st_r2 from public.registrar_servico(
   :'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_foleo', 'valor', 40)),
-  10500, :'hoje'::date, 40, null, null, :'f' || '/' || :'c1' || '/notas/n2.jpg') \gset
+  10500, :'hoje'::date, 40, null, null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select tests.sair();
 select is(:'st_r2'::text, 'pendente', '4 com_aprovacao fica pendente');
 select is((select ultimo_km from public.vehicle_items where id = :'it_foleo'), null, '4 item não muda');
@@ -152,10 +152,10 @@ update public.fleet_members set nivel_manutencao = 'confiavel' where id = :'m1';
 select tests.entrar_como(:'ma');
 select id as r_ar from public.registrar_servico(
   :'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_ar')),
-  10500, :'hoje'::date, 60, null, null, :'f' || '/' || :'c1' || '/notas/n3.jpg') \gset
+  10500, :'hoje'::date, 60, null, null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select id as r_comb from public.registrar_servico(
   :'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_comb')),
-  10500, :'hoje'::date, 80, null, null, :'f' || '/' || :'c1' || '/notas/n4.jpg') \gset
+  10500, :'hoje'::date, 80, null, null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select tests.sair();
 select is((select ultimo_km from public.vehicle_items where id = :'it_ar'), 10500, '7 ar aplicado');
 select tests.entrar_como(:'dono');
@@ -190,7 +190,7 @@ select is((select ultimo_km::text || '/' || ultima_data::text from public.vehicl
 update public.fleet_members set nivel_manutencao = 'com_aprovacao' where id = :'m1';
 select tests.entrar_como(:'ma');
 select id as r_rec from public.registrar_servico(:'c1', '[{"nome_outro":"Retrovisor"}]'::jsonb,
-  10500, :'hoje'::date, 90, null, null, :'f' || '/' || :'c1' || '/notas/n6.jpg') \gset
+  10500, :'hoje'::date, 90, null, null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select tests.sair();
 select tests.entrar_como(:'dono');
 select is((select status::text from public.revisar_servico(:'r_rec', 'recusar', 'Sem nota fiscal')), 'recusado', '8c pendente vira recusado');
@@ -241,7 +241,7 @@ update public.fleet_members set nivel_manutencao = 'sem_permissao' where id = :'
 select tests.entrar_como(:'ma');
 select id as r_ped, status::text as st_ped from public.registrar_servico(
   :'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_oleo', 'valor', 210)),
-  12100, :'hoje'::date, 210, :'ped1', null, :'f' || '/' || :'c1' || '/notas/n5.jpg') \gset
+  12100, :'hoje'::date, 210, :'ped1', null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select tests.sair();
 select is(:'st_ped'::text, 'pendente', '14 via pedido fica pendente');
 select is((select status::text from public.maintenance_requests where id = :'ped1'), 'aberto', '14 pedido segue aberto');
@@ -287,7 +287,7 @@ select id as ped5 from public.criar_pedido(:'c1', array[:'it_velas']::uuid[], :'
 select tests.sair();
 select tests.entrar_como(:'ma');
 select id as r_auto from public.registrar_servico(:'c1', jsonb_build_array(jsonb_build_object('vehicle_item_id', :'it_velas')),
-  12100, :'hoje'::date, 150, null, null, :'f' || '/' || :'c1' || '/notas/n7.jpg') \gset
+  12100, :'hoje'::date, 150, null, null, tests.criar_foto(:'f', :'c1', 'notas')) \gset
 select tests.sair();
 select is((select request_id from public.maintenance_records where id = :'r_auto'), :'ped5'::uuid, '18b pedido aberto vinculado automaticamente');
 select tests.entrar_como(:'dono');
@@ -318,24 +318,27 @@ select is(public.permissao_registro(:'c2'), 'negado', '3b aguardando_fotos é ne
 select tests.sair();
 
 -- 16 devolver carro cancela pedido aberto
+-- (ped_mb foi vinculado pelo serviço do dono no passo 19, pois era o único pedido aberto do carro)
+insert into public.maintenance_requests (vehicle_id, driver_id, itens, prazo)
+values (:'c1', :'mb', array[:'it_oleo']::uuid[], :'hoje'::date + 5) returning id as ped_mb2 \gset
 select tests.entrar_como(:'dono');
 select id as ped3 from public.criar_pedido(:'c1', array[:'it_foleo']::uuid[], :'hoje'::date + 3) \gset
 select tests.sair();
 select tests.entrar_como(:'ma');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a1', 'devolucao', p, :'f' || '/' || :'c1' || '/inspecao/d' || p || '.jpg', now()
+select :'a1', 'devolucao', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select public.devolver_carro(:'a1', 12100);
 select tests.sair();
 select is((select status::text from public.maintenance_requests where id = :'ped3'), 'cancelado', '16 devolver cancela pedido');
 select is((select count(*)::int from public.notifications where user_id = :'dono' and tipo = 'pedido_cancelado' and ref_id = :'ped3'), 1, '16 dono recebeu pedido_cancelado');
-select is((select status::text from public.maintenance_requests where id = :'ped_mb'), 'aberto', '16 pedido de outro motorista segue aberto');
+select is((select status::text from public.maintenance_requests where id = :'ped_mb2'), 'aberto', '16 pedido de outro motorista segue aberto');
 
 -- 16b remover motorista cancela pedido
 select tests.entrar_como(:'ma');
 select id as a2 from public.iniciar_retirada(:'c1', 12100) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a2', 'retirada', p, :'f' || '/' || :'c1' || '/inspecao/q' || p || '.jpg', now()
+select :'a2', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a2');
 select tests.sair();

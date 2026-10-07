@@ -43,7 +43,7 @@ select tests.sair();
 select tests.entrar_como(:'ma');
 select throws_ok(format($$select public.concluir_retirada(%L)$$, :'a1'), 'P0001', 'FOTOS_FALTANDO', '5 sem fotos');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a1', 'retirada', p, :'f' || '/' || :'c1' || '/inspecao/' || p || '.jpg', now()
+select :'a1', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select is((select status::text from public.concluir_retirada(:'a1')), 'ativo', '5 com fotos fica ativo');
 
@@ -61,7 +61,7 @@ select tests.entrar_como(:'ma');
 select is((select salto_suspeito from public.registrar_km(:'c1', 12100)), false, '8 +1750 em 5 dias sem foto ok');
 
 -- 9
-select is((select salto_suspeito from public.registrar_km(:'c1', 17100, 'atualizacao', :'f' || '/' || :'c1' || '/painel/p.jpg')), true, '9 salto com foto é suspeito');
+select is((select salto_suspeito from public.registrar_km(:'c1', 17100, 'atualizacao', tests.criar_foto(:'f', :'c1', 'painel'))), true, '9 salto com foto é suspeito');
 select tests.sair();
 select is((select count(*)::int from public.notifications where user_id = :'dono' and tipo = 'km_foto_painel'), 1, '9 dono notificado');
 
@@ -90,7 +90,7 @@ select is((select count(*)::int from public.vehicle_items where vehicle_id = :'c
 -- 14
 select throws_ok(format($$select public.devolver_carro(%L, 9300)$$, :'a1'), 'P0001', 'FOTOS_FALTANDO', '14 devolução sem fotos');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a1', 'devolucao', p, :'f' || '/' || :'c1' || '/inspecao/d' || p || '.jpg', now()
+select :'a1', 'devolucao', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select is((select status::text from public.devolver_carro(:'a1', 9300)), 'encerrado', '14 devolvido');
 select tests.sair();
@@ -106,7 +106,7 @@ select is((select em_uso from public.vehicles where id = :'c1'), false, '15 carr
 select tests.entrar_como(:'ma');
 select id as a3 from public.iniciar_retirada(:'c1', 9300) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-select :'a3', 'retirada', p, :'f' || '/' || :'c1' || '/inspecao/r' || p || '.jpg', now()
+select :'a3', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
 from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a3');
 select throws_ok(format($$select public.cancelar_retirada(%L)$$, :'a3'), 'P0001', 'TRANSICAO_INVALIDA', '15 vínculo ativo não cancela');
@@ -123,12 +123,13 @@ select is((select status::text from public.assignments where id = :'a3'), 'encer
 select ok((select not em_uso and km_atual = 9300 from public.vehicles where id = :'c1')
   and (select km_fim = 9300 from public.assignments where id = :'a3'), '16 carro livre e km_fim');
 
--- 17 storage (mb ainda é membro ativo)
+-- 17 storage (mb ainda é membro ativo e retira o carro2)
 select tests.entrar_como(:'mb');
+select public.iniciar_retirada(:'c2', 10000);
 select lives_ok(format($$insert into storage.objects (bucket_id, name, owner) values ('fotos', %L, %L)$$,
-  :'f' || '/' || :'c1' || '/inspecao/x.jpg', :'mb'), '17 upload na própria frota');
+  :'f' || '/' || :'c2' || '/inspecao/x.jpg', :'mb'), '17 upload na própria frota');
 select throws_ok(format($$insert into storage.objects (bucket_id, name, owner) values ('fotos', %L, %L)$$,
-  gen_random_uuid()::text || '/' || :'c1' || '/inspecao/x.jpg', :'mb'), '42501', null, '17 outra frota bloqueado');
+  gen_random_uuid()::text || '/' || :'c2' || '/inspecao/x.jpg', :'mb'), '42501', null, '17 outra frota bloqueado');
 select tests.sair();
 
 -- 18 caminhos malformados e frota alheia
@@ -142,7 +143,7 @@ insert into storage.objects (bucket_id, name) values ('fotos', :'fb' || '/x/insp
 select tests.entrar_como(:'mb');
 select lives_ok($$select count(*) from storage.objects where bucket_id = 'fotos'$$, '18 objeto malformado não quebra a listagem');
 select is((select count(*)::int from storage.objects where bucket_id = 'fotos' and name = :'fb' || '/x/inspecao/b.jpg'), 0, '18 não vê objeto de outra frota');
-select is((select count(*)::int from storage.objects where bucket_id = 'fotos' and name = :'f' || '/' || :'c1' || '/inspecao/x.jpg'), 1, '18 vê objeto da própria frota');
+select is((select count(*)::int from storage.objects where bucket_id = 'fotos' and name = :'f' || '/' || :'c2' || '/inspecao/x.jpg'), 1, '18 vê objeto da própria frota');
 select throws_ok($$insert into storage.objects (bucket_id, name) values ('fotos', 'lixo/y.jpg')$$, '42501', null, '18 insert malformado bloqueado');
 
 -- 19 horário da leitura

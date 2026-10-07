@@ -40,10 +40,12 @@ select throws_ok(format($$select public.relatar_ocorrencia(%L, 'outro', 'x')$$, 
 select throws_ok(format($$select public.relatar_ocorrencia(%L, 'outro', '   ')$$, :'c1'), 'P0001', 'DESCRICAO_OBRIGATORIA', '3b descrição vazia');
 
 -- 4 fotos
-select lives_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, 'a/b.jpg', now())$$, :'i1'), '4 foto na própria');
+select tests.criar_foto(:'f', :'c1', 'ocorrencias') as foto1 \gset
+select tests.criar_foto(:'f', :'c1', 'ocorrencias') as foto2 \gset
+select lives_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, %L, now())$$, :'i1', :'foto1'), '4 foto na própria');
 select tests.sair();
 select tests.entrar_como(:'mb');
-select throws_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, 'a/c.jpg', now())$$, :'i1'), '42501', null, '4b foto na de outro');
+select throws_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, %L, now())$$, :'i1', :'foto2'), '42501', null, '4b foto na de outro');
 
 -- 5 resolver
 select throws_ok(format($$select public.resolver_ocorrencia(%L)$$, :'i1'), 'P0001', 'SEM_ACESSO', '5 motorista não resolve');

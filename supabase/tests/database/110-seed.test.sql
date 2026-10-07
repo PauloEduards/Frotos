@@ -1,6 +1,6 @@
 -- Dados de exemplo (seed) da Frota Piloto.
 begin;
-select plan(12);
+select plan(13);
 
 -- 1 frota do dono tem 5 veículos e código 'FRT-TEST'
 select is(
@@ -54,7 +54,28 @@ select is(
    where i.status = 'aberta'),
   1, 'uma ocorrência aberta');
 
--- 5 login
+-- 5 fotos do seed existem no storage, na pasta do carro
+select is(
+  (select count(*)::int from (
+     select ip.path, v.fleet_id, v.id from public.inspection_photos ip
+     join public.assignments a on a.id = ip.assignment_id
+     join public.vehicles v on v.id = a.vehicle_id
+     join public.fleets f on f.id = v.fleet_id and f.codigo_convite = 'FRT-TEST'
+     union all
+     select ph.path, v.fleet_id, v.id from public.incident_photos ph
+     join public.incidents i on i.id = ph.incident_id
+     join public.vehicles v on v.id = i.vehicle_id
+     join public.fleets f on f.id = v.fleet_id and f.codigo_convite = 'FRT-TEST'
+     union all
+     select r.nota_foto_path, v.fleet_id, v.id from public.maintenance_records r
+     join public.vehicles v on v.id = r.vehicle_id
+     join public.fleets f on f.id = v.fleet_id and f.codigo_convite = 'FRT-TEST'
+     where r.nota_foto_path is not null
+   ) x (path, fleet_id, vehicle_id)
+   where not public.foto_valida(x.path, x.fleet_id, x.vehicle_id)),
+  0, 'todas as fotos do seed existem no storage');
+
+-- 6 login
 select ok(
   (select encrypted_password = crypt('senha123', encrypted_password)
    from auth.users where email = 'ana@frotos.dev'),

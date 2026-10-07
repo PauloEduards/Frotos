@@ -1,4 +1,4 @@
-﻿-- Utilitários de teste compartilhados. Este arquivo NÃO faz rollback:
+-- Utilitários de teste compartilhados. Este arquivo NÃO faz rollback:
 -- deixa o schema `tests` instalado para os arquivos seguintes.
 create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
@@ -46,9 +46,26 @@ begin
 end;
 $$;
 
+-- Cria um objeto no bucket 'fotos' em '<frota>/<carro>/<categoria>/<uuid>.jpg' e devolve o caminho.
+-- security definer: funciona mesmo chamado com o papel authenticated (simula o upload já feito).
+create or replace function tests.criar_foto(p_fleet uuid, p_vehicle uuid, p_categoria text default 'inspecao')
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_path text := p_fleet::text || '/' || p_vehicle::text || '/' || p_categoria || '/' || gen_random_uuid()::text || '.jpg';
+begin
+  insert into storage.objects (bucket_id, name) values ('fotos', v_path);
+  return v_path;
+end;
+$$;
+
 grant usage on schema tests to authenticated;
 grant execute on all functions in schema tests to authenticated;
 
-select plan(1);
+select plan(2);
 select has_function('tests', 'criar_usuario', array['text', 'text', 'text']);
+select has_function('tests', 'criar_foto', array['uuid', 'uuid', 'text']);
 select * from finish();

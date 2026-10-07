@@ -15,6 +15,7 @@ declare
   u record;
   v record;
   p text;
+  v_path text;
 begin
   -- ---------- Usuários (login por e-mail e senha no GoTrue local) ----------
   for u in
@@ -92,6 +93,7 @@ begin
   where vehicle_id = v_mobi and nome = 'Óleo do motor';
 
   -- ---------- Vínculos ativos com as 4 fotos de retirada ----------
+  -- Fotos ficam em '<frota>/<carro>/...' e precisam existir em storage.objects (bucket 'fotos').
   insert into public.assignments (vehicle_id, driver_id, status, inicio_em, km_inicio)
   values (v_onix, v_ana, 'ativo', ((v_hoje - 29)::timestamp + interval '8 hours') at time zone 'America/Sao_Paulo', 45200 - 29 * 300)
   returning id into v_vinc_ana;
@@ -100,12 +102,13 @@ begin
   returning id into v_vinc_bruno;
 
   for v in
-    select * from (values (v_vinc_ana), (v_vinc_bruno)) t (vinculo)
+    select * from (values (v_vinc_ana, v_onix, v_ana), (v_vinc_bruno, v_hb20, v_bruno)) t (vinculo, carro, motorista)
   loop
     foreach p in array array['frente', 'traseira', 'lateral_esq', 'lateral_dir'] loop
+      v_path := v_frota || '/' || v.carro || '/inspecao/' || v.vinculo || '-retirada-' || p || '.jpg';
+      insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, v.motorista::text);
       insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
-      values (v.vinculo, 'retirada', p::public.posicao_foto,
-              v_frota || '/inspecoes/' || v.vinculo || '/retirada-' || p || '.jpg',
+      values (v.vinculo, 'retirada', p::public.posicao_foto, v_path,
               ((v_hoje - 29)::timestamp + interval '8 hours') at time zone 'America/Sao_Paulo');
     end loop;
   end loop;
@@ -125,17 +128,21 @@ begin
   end loop;
 
   -- ---------- Serviço aprovado (Ana, confiável): filtro de ar do Onix ----------
+  v_path := v_frota || '/' || v_onix || '/notas/filtro-ar-onix.jpg';
+  insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, v_ana::text);
   insert into public.maintenance_records (vehicle_id, autor_id, oficina, km, data, valor_total, nota_foto_path, status)
   values (v_onix, v_ana, 'Auto Center Silva', 45200 - 14 * 300, v_hoje - 14, 60,
-          v_frota || '/notas/filtro-ar-onix.jpg', 'aprovado')
+          v_path, 'aprovado')
   returning id into v_servico;
   insert into public.maintenance_record_items (record_id, vehicle_item_id, valor)
   select v_servico, id, 60 from public.vehicle_items where vehicle_id = v_onix and nome = 'Filtro de ar';
 
   -- ---------- Serviço pendente do Bruno (com aprovação): rodízio de pneus do HB20 ----------
+  v_path := v_frota || '/' || v_hb20 || '/notas/pneus-hb20.jpg';
+  insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, v_bruno::text);
   insert into public.maintenance_records (vehicle_id, autor_id, oficina, km, data, valor_total, nota_foto_path, status)
   values (v_hb20, v_bruno, 'Pneus Express', 62000 - 3 * 300, v_hoje - 3, 120,
-          v_frota || '/notas/pneus-hb20.jpg', 'pendente')
+          v_path, 'pendente')
   returning id into v_servico;
   insert into public.maintenance_record_items (record_id, vehicle_item_id, valor)
   select v_servico, id, 120 from public.vehicle_items where vehicle_id = v_hb20 and nome = 'Pneus (rodízio e alinhamento)';
@@ -149,8 +156,10 @@ begin
   insert into public.incidents (vehicle_id, driver_id, tipo, descricao, criada_em)
   values (v_onix, v_ana, 'mecanico', 'Barulho na suspensão dianteira ao passar em buracos.', now() - interval '2 days')
   returning id into v_ocorrencia;
+  v_path := v_frota || '/' || v_onix || '/ocorrencias/' || v_ocorrencia || '-foto-1.jpg';
+  insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, v_ana::text);
   insert into public.incident_photos (incident_id, path, capturado_em)
-  values (v_ocorrencia, v_frota || '/ocorrencias/' || v_ocorrencia || '/foto-1.jpg', now() - interval '2 days');
+  values (v_ocorrencia, v_path, now() - interval '2 days');
 
   -- ---------- Notificação de pedido de entrada (Caio) ----------
   perform public.notificar(v_dono, 'entrada_pedida', 'Novo pedido de entrada',
