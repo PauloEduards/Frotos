@@ -21,6 +21,10 @@ export default function DonoLayout() {
         name="carros/novo"
         options={{ headerShown: true, title: 'Novo carro', headerBackTitle: 'Voltar' }}
       />
+      <Stack.Screen
+        name="carros/[id]/itens"
+        options={{ headerShown: true, title: '', headerBackTitle: 'Voltar' }}
+      />
     </Stack>
   );
 }
