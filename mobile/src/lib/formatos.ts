@@ -27,6 +27,11 @@ export function formatarData(iso: string | null): string {
 
 const BRASILIA_MS = -3 * 60 * 60 * 1000;
 
+/** Dia de hoje no horário de Brasília, como 'aaaa-mm-dd'. */
+export function hojeBrt(): string {
+  return new Date(Date.now() + BRASILIA_MS).toISOString().slice(0, 10);
+}
+
 /** Data (dd/mm/aaaa) de um instante, no horário de Brasília (UTC-3, sem horário de verão). */
 export function formatarDataBrt(instante: string | null): string {
   if (!instante) return '—';

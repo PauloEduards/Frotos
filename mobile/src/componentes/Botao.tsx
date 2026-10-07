@@ -6,12 +6,13 @@ type Props = {
   titulo: string;
   onPress: () => void;
   carregando?: boolean;
+  desabilitado?: boolean;
   variante?: 'primario' | 'secundario' | 'perigo';
 };
 
 const PERIGO = '#C62828';
 
-export function Botao({ titulo, onPress, carregando = false, variante = 'primario' }: Props) {
+export function Botao({ titulo, onPress, carregando = false, desabilitado = false, variante = 'primario' }: Props) {
   const corFundo =
     variante === 'primario' ? cores.primaria : variante === 'perigo' ? PERIGO : 'transparent';
   const corTexto = variante === 'secundario' ? cores.primaria : '#FFFFFF';
@@ -20,14 +21,14 @@ export function Botao({ titulo, onPress, carregando = false, variante = 'primari
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={titulo}
-      accessibilityState={{ disabled: carregando, busy: carregando }}
-      disabled={carregando}
+      accessibilityState={{ disabled: carregando || desabilitado, busy: carregando }}
+      disabled={carregando || desabilitado}
       onPress={onPress}
       style={({ pressed }) => [
         estilos.botao,
         { backgroundColor: corFundo },
         variante === 'secundario' && { borderWidth: 1, borderColor: cores.primaria },
-        (pressed || carregando) && { opacity: 0.7 },
+        (pressed || carregando || desabilitado) && { opacity: 0.7 },
       ]}
     >
       {carregando ? (

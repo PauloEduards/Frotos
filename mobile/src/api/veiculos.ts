@@ -192,12 +192,14 @@ export type Veiculo = {
   cor: string;
   km_atual: number;
   km_dia_estimado: number;
+  exige_aprovacao_sempre: boolean;
 };
 
 export async function buscarVeiculo(id: string): Promise<Veiculo> {
   const { data, error } = await supabase
     .from('vehicles')
-    .select('id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado')
+    .select('id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado, exige_aprovacao_sempre',
+    )
     .eq('id', id)
     .single();
   if (error) throw comoErroApp(error);
@@ -289,4 +291,22 @@ export async function vinculos(vehicleId: string): Promise<Vinculo[]> {
     motorista_nome: profiles?.nome ?? null,
     fotos: inspection_photos,
   }));
+}
+
+/** Correção do dono para um km digitado errado (leitura com origem `correcao_dono`). */
+export async function corrigirKm(vehicleId: string, km: number): Promise<void> {
+  const { error } = await supabase.rpc('registrar_km', {
+    p_vehicle_id: vehicleId,
+    p_km: km,
+    p_origem: 'correcao_dono',
+  });
+  if (error) throw comoErroApp(error);
+}
+
+export async function atualizarVeiculo(
+  id: string,
+  campos: { exige_aprovacao_sempre?: boolean; ativo?: boolean; km_dia_estimado?: number },
+): Promise<void> {
+  const { error } = await supabase.from('vehicles').update(campos).eq('id', id);
+  if (error) throw comoErroApp(error);
 }

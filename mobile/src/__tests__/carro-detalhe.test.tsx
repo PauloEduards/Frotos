@@ -1,9 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { urlsAssinadas } from '@/api/fotos';
+import { cancelarPedido, pedidosAbertos } from '@/api/manutencao';
 import {
+  atualizarVeiculo,
   buscarVeiculo,
+  corrigirKm,
   leiturasKm,
   previsaoItens,
   servicos,
@@ -17,13 +21,17 @@ import {
 import DetalheCarro from '@/app/(dono)/carros/[id]/index';
 
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'v1' }),
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 jest.mock('@/lib/cliente', () => ({ supabase: {} }));
 jest.mock('@/api/fotos', () => ({ urlsAssinadas: jest.fn() }));
+jest.mock('@/api/manutencao', () => ({ pedidosAbertos: jest.fn(), cancelarPedido: jest.fn() }));
 jest.mock('@/api/veiculos', () => ({
+  atualizarVeiculo: jest.fn(),
+  corrigirKm: jest.fn(),
   buscarVeiculo: jest.fn(),
   statusCarro: jest.fn(),
   previsaoItens: jest.fn(),
@@ -39,6 +47,13 @@ const leiturasMock = leiturasKm as jest.Mock;
 const servicosMock = servicos as jest.Mock;
 const vinculosMock = vinculos as jest.Mock;
 const urlsMock = urlsAssinadas as jest.Mock;
+const pedidosMock = pedidosAbertos as jest.Mock;
+const cancelarMock = cancelarPedido as jest.Mock;
+const corrigirMock = corrigirKm as jest.Mock;
+const atualizarMock = atualizarVeiculo as jest.Mock;
+
+type BotaoAlerta = { text: string; style?: string; onPress?: () => void };
+let alertSpy: jest.SpyInstance;
 
 const veiculo = {
   id: 'v1',
@@ -50,6 +65,7 @@ const veiculo = {
   cor: 'Prata',
   km_atual: 45200,
   km_dia_estimado: 300,
+  exige_aprovacao_sempre: false,
 };
 
 function item(extra: Partial<PrevisaoItem> & { nome: string }): PrevisaoItem {
@@ -94,7 +110,14 @@ beforeEach(() => {
   servicosMock.mockResolvedValue([]);
   vinculosMock.mockResolvedValue([]);
   urlsMock.mockResolvedValue({});
+  pedidosMock.mockResolvedValue([]);
+  cancelarMock.mockResolvedValue(undefined);
+  corrigirMock.mockResolvedValue(undefined);
+  atualizarMock.mockResolvedValue(undefined);
+  alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
+
+afterEach(() => alertSpy.mockRestore());
 
 describe('cabeçalho', () => {
   it('mostra placa, modelo, cor, km atual e média', async () => {
@@ -388,5 +411,89 @@ describe('Retiradas e devoluções', () => {
   it('sem vínculos mostra a lista vazia', async () => {
     await renderizar();
     expect(await screen.findByText('Nenhuma retirada ou devolução registrada.')).toBeTruthy();
+  });
+});
+
+describe('Pedidos abertos', () => {
+  const pedido = {
+    id: 'p1',
+    itens: ['Óleo do motor'],
+    prazo: '2026-10-20',
+    observacao: 'Levar na terça',
+    driver_id: 'm1',
+  };
+
+  it('lista os pedidos abertos com itens, prazo e observação', async () => {
+    previsaoMock.mockResolvedValue([item({ nome: 'Óleo do motor', status: 'proximo' })]);
+    pedidosMock.mockResolvedValue([pedido]);
+    await renderizar();
+    expect(await screen.findByText('Prazo: 20/10/2026')).toBeTruthy();
+    expect(screen.getByText('Levar na terça')).toBeTruthy();
+    expect(pedidosMock).toHaveBeenCalledWith('v1');
+  });
+
+  it('sem pedidos mostra a lista vazia', async () => {
+    await renderizar();
+    expect(await screen.findByText('Nenhum pedido aberto.')).toBeTruthy();
+  });
+
+  it('Cancelar pede confirmação e cancela o pedido', async () => {
+    pedidosMock.mockResolvedValue([pedido]);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Cancelar'));
+    expect(cancelarMock).not.toHaveBeenCalled();
+    const botoes = alertSpy.mock.calls[0][2] as BotaoAlerta[];
+    await botoes.find((b) => b.style !== 'cancel')?.onPress?.();
+    await waitFor(() => expect(cancelarMock).toHaveBeenCalledWith('p1'));
+  });
+});
+
+describe('menu Mais', () => {
+  async function abrirMais() {
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Mais'));
+  }
+
+  it('Corrigir km avisa, pede o km e corrige', async () => {
+    await abrirMais();
+    await fireEvent.press(screen.getByText('Corrigir km'));
+    expect(screen.getByText('Use só para corrigir um km digitado errado.')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Km correto'), '45000');
+    await fireEvent.press(screen.getByText('Salvar km'));
+    await waitFor(() => expect(corrigirMock).toHaveBeenCalledWith('v1', 45000));
+  });
+
+  it('Corrigir km recusa valor inválido', async () => {
+    await abrirMais();
+    await fireEvent.press(screen.getByText('Corrigir km'));
+    await fireEvent.press(screen.getByText('Salvar km'));
+    expect(await screen.findByText('Informe o km do painel.')).toBeTruthy();
+    expect(corrigirMock).not.toHaveBeenCalled();
+  });
+
+  it('erro de negócio ao corrigir mostra o DETAIL', async () => {
+    corrigirMock.mockRejectedValue({ code: 'P0001', message: 'X', details: 'Km inválido para este carro.' });
+    await abrirMais();
+    await fireEvent.press(screen.getByText('Corrigir km'));
+    await fireEvent.changeText(screen.getByLabelText('Km correto'), '10');
+    await fireEvent.press(screen.getByText('Salvar km'));
+    expect(await screen.findByText('Km inválido para este carro.')).toBeTruthy();
+  });
+
+  it('interruptor liga "Sempre exigir minha aprovação"', async () => {
+    await abrirMais();
+    await fireEvent(screen.getByLabelText('Sempre exigir minha aprovação'), 'valueChange', true);
+    await waitFor(() => expect(atualizarMock).toHaveBeenCalledWith('v1', { exige_aprovacao_sempre: true }));
+  });
+
+  it('Desativar carro pede confirmação e desativa', async () => {
+    await abrirMais();
+    await fireEvent.press(screen.getByText('Desativar carro'));
+    expect(alertSpy.mock.calls[0][1]).toBe('O carro sai do painel e das previsões.');
+    expect(atualizarMock).not.toHaveBeenCalled();
+    const botoes = alertSpy.mock.calls[0][2] as BotaoAlerta[];
+    await botoes.find((b) => b.style === 'destructive')?.onPress?.();
+    await waitFor(() => expect(atualizarMock).toHaveBeenCalledWith('v1', { ativo: false }));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
   });
 });

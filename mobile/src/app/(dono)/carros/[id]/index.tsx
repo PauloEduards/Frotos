@@ -1,11 +1,23 @@
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import { urlsAssinadas } from '@/api/fotos';
+import { cancelarPedido, pedidosAbertos, type PedidoAberto } from '@/api/manutencao';
 import {
+  atualizarVeiculo,
   buscarVeiculo,
+  corrigirKm,
   leiturasKm,
   previsaoItens,
   servicos,
@@ -20,6 +32,7 @@ import {
 } from '@/api/veiculos';
 import { BadgeStatus } from '@/componentes/BadgeStatus';
 import { Botao } from '@/componentes/Botao';
+import { Campo } from '@/componentes/Campo';
 import { Carregando } from '@/componentes/Carregando';
 import { FotoRemota } from '@/componentes/FotoRemota';
 import { ListaVazia } from '@/componentes/ListaVazia';
@@ -74,6 +87,68 @@ export default function DetalheCarro() {
   const leituras = useQuery({ queryKey: ['veiculos', 'leituras', id], queryFn: () => leiturasKm(id) });
   const servicosQ = useQuery({ queryKey: ['veiculos', 'servicos', id], queryFn: () => servicos(id) });
   const vinculosQ = useQuery({ queryKey: ['veiculos', 'vinculos', id], queryFn: () => vinculos(id) });
+  const pedidosQ = useQuery({ queryKey: ['veiculos', 'pedidos', id], queryFn: () => pedidosAbertos(id) });
+
+  const queryClient = useQueryClient();
+  const [maisAberto, setMaisAberto] = useState(false);
+  const [corrigindo, setCorrigindo] = useState(false);
+  const [kmCorreto, setKmCorreto] = useState('');
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
+
+  async function aposAcao() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
+      queryClient.invalidateQueries({ queryKey: ['pendencias'] }),
+    ]);
+  }
+
+  const cancelar = useMutation({
+    mutationFn: (pedidoId: string) => cancelarPedido(pedidoId),
+    onSuccess: aposAcao,
+    onError: (e) => setErroAcao(mensagemErro(e)),
+  });
+  const corrigir = useMutation({
+    mutationFn: (km: number) => corrigirKm(id, km),
+    onSuccess: async () => {
+      setCorrigindo(false);
+      setKmCorreto('');
+      await aposAcao();
+    },
+    onError: (e) => setErroAcao(mensagemErro(e)),
+  });
+  const alterar = useMutation({
+    mutationFn: (campos: Parameters<typeof atualizarVeiculo>[1]) => atualizarVeiculo(id, campos),
+    onSuccess: async (_, campos) => {
+      await aposAcao();
+      if (campos.ativo === false) router.back();
+    },
+    onError: (e) => setErroAcao(mensagemErro(e)),
+  });
+
+  function pedirCancelamento(pedidoId: string) {
+    setErroAcao(null);
+    Alert.alert('Cancelar pedido?', 'O motorista deixa de receber este pedido.', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Cancelar pedido', style: 'destructive', onPress: () => cancelar.mutate(pedidoId) },
+    ]);
+  }
+
+  function pedirDesativacao() {
+    setErroAcao(null);
+    Alert.alert('Desativar carro?', 'O carro sai do painel e das previsões.', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Desativar carro', style: 'destructive', onPress: () => alterar.mutate({ ativo: false }) },
+    ]);
+  }
+
+  function salvarKm() {
+    setErroAcao(null);
+    if (!/^\d+$/.test(kmCorreto.trim())) {
+      setErroAcao('Informe o km do painel.');
+      return;
+    }
+    corrigir.mutate(Number(kmCorreto.trim()));
+  }
 
   // Uma única chamada assina as fotos do painel e das inspeções, depois que as duas listas chegam.
   const caminhos = [
@@ -99,6 +174,7 @@ export default function DetalheCarro() {
         leituras.refetch(),
         servicosQ.refetch(),
         vinculosQ.refetch(),
+        pedidosQ.refetch(),
       ]);
     } finally {
       setAtualizando(false);
@@ -149,6 +225,22 @@ export default function DetalheCarro() {
       <Botao titulo="Pedido de manutenção" variante="secundario" onPress={() => router.push(`/carros/${id}/pedido`)} />
 
       <Secao
+        titulo="Pedidos abertos"
+        consulta={pedidosQ}
+        vazio="Nenhum pedido aberto."
+        renderizar={(lista) =>
+          lista.map((p) => (
+            <LinhaPedido
+              key={p.id}
+              pedido={p}
+              nomes={nomesDosItens(previsao.data)}
+              onCancelar={() => pedirCancelamento(p.id)}
+            />
+          ))
+        }
+      />
+
+      <Secao
         titulo="Manutenção"
         consulta={previsao}
         vazio="Nenhum item no plano de manutenção."
@@ -179,7 +271,68 @@ export default function DetalheCarro() {
         vazio="Nenhuma retirada ou devolução registrada."
         renderizar={(lista) => lista.map((a) => <BlocoVinculo key={a.id} vinculo={a} urls={urls} />)}
       />
+
+      <Botao
+        titulo="Mais"
+        variante="secundario"
+        onPress={() => {
+          setMaisAberto(!maisAberto);
+          setErroAcao(null);
+        }}
+      />
+      {maisAberto ? (
+        <View style={estilos.menuMais}>
+          <Botao titulo="Corrigir km" variante="secundario" onPress={() => setCorrigindo(!corrigindo)} />
+          {corrigindo ? (
+            <View style={estilos.secao}>
+              <Text style={estilos.apoio}>Use só para corrigir um km digitado errado.</Text>
+              <Campo rotulo="Km correto" valor={kmCorreto} onChange={setKmCorreto} tipo="numero" />
+              <Botao titulo="Salvar km" onPress={salvarKm} carregando={corrigir.isPending} />
+            </View>
+          ) : null}
+          <View style={estilos.linhaInterruptor}>
+            <Text style={estilos.nomeItem}>Sempre exigir minha aprovação</Text>
+            <Switch
+              accessibilityLabel="Sempre exigir minha aprovação"
+              value={
+                alterar.isPending && alterar.variables?.exige_aprovacao_sempre !== undefined
+                  ? alterar.variables.exige_aprovacao_sempre
+                  : v.exige_aprovacao_sempre === true
+              }
+              onValueChange={(valor) => {
+                setErroAcao(null);
+                alterar.mutate({ exige_aprovacao_sempre: valor });
+              }}
+            />
+          </View>
+          <Botao titulo="Desativar carro" variante="perigo" onPress={pedirDesativacao} />
+        </View>
+      ) : null}
+      {erroAcao ? <MensagemErro texto={erroAcao} /> : null}
     </ScrollView>
+  );
+}
+
+function nomesDosItens(previsao: PrevisaoItem[] | undefined): Record<string, string> {
+  return Object.fromEntries((previsao ?? []).map((i) => [i.vehicle_item_id, i.nome]));
+}
+
+function LinhaPedido({
+  pedido,
+  nomes,
+  onCancelar,
+}: {
+  pedido: PedidoAberto;
+  nomes: Record<string, string>;
+  onCancelar: () => void;
+}) {
+  return (
+    <View style={estilos.linha}>
+      <Text style={estilos.nomeItem}>{`Prazo: ${formatarData(pedido.prazo)}`}</Text>
+      <Text style={estilos.apoio}>{pedido.itens.map((i) => nomes[i] ?? 'Item').join(', ')}</Text>
+      {pedido.observacao ? <Text style={estilos.apoio}>{pedido.observacao}</Text> : null}
+      <Botao titulo="Cancelar" variante="secundario" onPress={onCancelar} />
+    </View>
   );
 }
 
@@ -364,4 +517,11 @@ const estilos = StyleSheet.create({
   statusServico: { fontSize: 14, fontWeight: '700' },
   situacao: { fontSize: 13, fontWeight: '600', color: cores.primaria },
   fotos: { gap: espaco.sm },
+  menuMais: { gap: espaco.md },
+  linhaInterruptor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: espaco.md,
+  },
 });
