@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(42);
 
 select tests.cenario_basico() as c \gset
 select (:'c'::jsonb->>'dono')::uuid as dono,
@@ -120,6 +120,11 @@ select is((select status::text from public.previsao_itens_interna(:'c1', '2026-1
 update public.vehicle_items set ativo = false where vehicle_id = :'c1';
 select is((select count(*)::int from public.previsao_itens_interna(:'c1', '2026-10-06')), 0, '13 item inativo não aparece');
 
+-- 13b zero leituras na janela → estimada true com km_dia_estimado
+delete from public.odometer_readings where vehicle_id = :'c1';
+select is((select media from public.media_km_dia_interna(:'c1', '2026-10-06')), 300::numeric, '13b sem leituras usa km_dia_estimado');
+select is((select estimada from public.media_km_dia_interna(:'c1', '2026-10-06')), true, '13b sem leituras estimada true');
+
 -- 14 acesso
 update public.vehicle_items set ativo = true where vehicle_id = :'c1';
 insert into public.assignments (vehicle_id, driver_id, status, km_inicio) values (:'c1', :'ma', 'ativo', 13000);
@@ -133,6 +138,7 @@ select tests.entrar_como(:'ma');
 select is((select count(*)::int from public.previsao_itens(:'c1', '2026-10-06')), 1, '14 motorista vinculado vê previsão');
 select tests.sair();
 select tests.entrar_como(:'dono');
+select is((select estimada from public.status_carro(:'c1', '2026-10-06')), true, '13b status_carro estimada true sem leituras');
 select is((select motorista_nome from public.resumo_frota(:'f', '2026-10-06') where vehicle_id = :'c1'), 'Motorista A', '14 resumo traz o motorista atual');
 select is((select status::text from public.resumo_frota(:'f', '2026-10-06') where vehicle_id = :'c1'), 'urgente', '14 resumo traz o status');
 select tests.sair();

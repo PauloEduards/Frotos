@@ -22,8 +22,8 @@ as $$
     from f, u
   )
   select
-    case when c.dias >= 3 and c.delta >= 0 then c.delta / c.dias else v.km_dia_estimado::numeric end,
-    not (c.dias >= 3 and c.delta >= 0)
+    case when coalesce(c.dias >= 3 and c.delta >= 0, false) then c.delta / c.dias else v.km_dia_estimado::numeric end,
+    not coalesce(c.dias >= 3 and c.delta >= 0, false)
   from public.vehicles v
   left join c on true
   where v.id = p_vehicle_id;
@@ -162,7 +162,7 @@ begin
     select v.id, v.placa, v.marca, v.modelo, s.status, s.proxima_data, s.proximo_item, s.estimada,
            (select pr.nome from public.assignments a
             join public.profiles pr on pr.id = a.driver_id
-            where a.vehicle_id = v.id and a.status <> 'encerrado'
+            where a.vehicle_id = v.id and a.status in ('aguardando_fotos', 'ativo')
             limit 1)
     from public.vehicles v
     cross join lateral public.status_carro_interna(v.id, p_hoje) s
