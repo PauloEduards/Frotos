@@ -25,6 +25,16 @@ export function formatarData(iso: string | null): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+const BRASILIA_MS = -3 * 60 * 60 * 1000;
+
+/** Data (dd/mm/aaaa) de um instante, no horário de Brasília (UTC-3, sem horário de verão). */
+export function formatarDataBrt(instante: string | null): string {
+  if (!instante) return '—';
+  const t = new Date(instante).getTime();
+  if (Number.isNaN(t)) return '—';
+  return formatarData(new Date(t + BRASILIA_MS).toISOString());
+}
+
 export function formatarDiaMes(iso: string): string {
   const [, mes, dia] = iso.slice(0, 10).split('-');
   return `${dia}/${mes}`;

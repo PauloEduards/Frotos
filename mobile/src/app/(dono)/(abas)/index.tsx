@@ -1,20 +1,41 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
+import { resumoFrota, type ResumoCarro } from '@/api/veiculos';
+import { BadgeStatus } from '@/componentes/BadgeStatus';
 import { Botao } from '@/componentes/Botao';
 import { Campo } from '@/componentes/Campo';
 import { Carregando } from '@/componentes/Carregando';
+import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
+import { formatarData } from '@/lib/formatos';
+import { corStatus, prioridadeStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
 
 const CHAVE = ['frota'];
 
 export default function PainelFrota() {
   const frota = useQuery({ queryKey: CHAVE, queryFn: minhaFrota });
+  const fleetId = frota.data?.id;
+  const carros = useQuery({
+    queryKey: ['veiculos', 'resumo', fleetId],
+    queryFn: () => resumoFrota(fleetId as string),
+    enabled: fleetId !== undefined,
+  });
+  const [atualizando, setAtualizando] = useState(false);
+
+  async function atualizar() {
+    setAtualizando(true);
+    try {
+      await carros.refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   if (frota.isPending) return <Carregando />;
 
@@ -30,16 +51,81 @@ export default function PainelFrota() {
   }
 
   return (
-    <ScrollView style={estilos.fundo} contentContainerStyle={estilos.conteudo}>
+    <ScrollView
+      testID="painel-frota"
+      style={estilos.fundo}
+      contentContainerStyle={estilos.conteudo}
+      refreshControl={
+        frota.data ? <RefreshControl refreshing={atualizando} onRefresh={() => void atualizar()} /> : undefined
+      }
+    >
       {frota.data ? (
         <>
           <CartaoCodigo frota={frota.data} />
           <AdicionarCarro />
+          <ListaCarros consulta={carros} />
         </>
       ) : (
         <CriarFrota />
       )}
     </ScrollView>
+  );
+}
+
+function ListaCarros({ consulta }: { consulta: UseQueryResult<ResumoCarro[]> }) {
+  // Se a atualização falhar, a lista anterior continua visível abaixo do erro.
+  const erro = consulta.isError ? (
+    <View style={estilos.bloco}>
+      <MensagemErro texto={mensagemErro(consulta.error)} />
+      <Botao titulo="Tentar de novo" onPress={() => void consulta.refetch()} />
+    </View>
+  ) : null;
+
+  if (consulta.data === undefined) return erro ?? <Carregando />;
+  if (consulta.data.length === 0) {
+    return (
+      <>
+        {erro}
+        <ListaVazia texto={'Nenhum carro cadastrado. Toque em "Adicionar carro".'} />
+      </>
+    );
+  }
+  // sort é estável: dentro do mesmo status mantém a ordem por placa que vem do banco.
+  const ordenados = [...consulta.data].sort((a, b) => prioridadeStatus(a.status) - prioridadeStatus(b.status));
+  return (
+    <View style={estilos.bloco}>
+      {erro}
+      {ordenados.map((c) => (
+        <CartaoCarro key={c.vehicle_id} carro={c} />
+      ))}
+    </View>
+  );
+}
+
+function CartaoCarro({ carro }: { carro: ResumoCarro }) {
+  const router = useRouter();
+  const proxima =
+    carro.proximo_item && carro.proxima_data
+      ? `Próxima: ${carro.proximo_item} em ${formatarData(carro.proxima_data)}`
+      : 'Sem previsão de manutenção';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push(`/carros/${carro.vehicle_id}`)}
+      style={({ pressed }) => [
+        estilos.cartao,
+        { borderLeftWidth: 6, borderLeftColor: corStatus(carro.status) },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <View style={estilos.linhaCarro}>
+        <Text style={estilos.placa}>{`${carro.placa} · ${carro.marca} ${carro.modelo}`}</Text>
+        <BadgeStatus status={carro.status} />
+      </View>
+      <Text style={estilos.detalhe}>{proxima}</Text>
+      {carro.estimada ? <Text style={estilos.estimada}>previsão estimada</Text> : null}
+      <Text style={estilos.detalhe}>{carro.motorista_nome ? `Motorista: ${carro.motorista_nome}` : 'Livre'}</Text>
+    </Pressable>
   );
 }
 
@@ -153,4 +239,9 @@ const estilos = StyleSheet.create({
   },
   nomeFrota: { fontSize: 14, color: cores.textoSecundario },
   codigo: { fontSize: 20, fontWeight: '700', color: cores.texto },
+  bloco: { gap: espaco.md },
+  linhaCarro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espaco.md },
+  placa: { flex: 1, fontSize: 17, fontWeight: '700', color: cores.texto },
+  detalhe: { fontSize: 15, color: cores.textoSecundario },
+  estimada: { fontSize: 13, fontStyle: 'italic', color: cores.textoSecundario },
 });

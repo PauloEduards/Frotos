@@ -22,6 +22,18 @@ export default function DonoLayout() {
         options={{ headerShown: true, title: 'Novo carro', headerBackTitle: 'Voltar' }}
       />
       <Stack.Screen
+        name="carros/[id]/index"
+        options={{ headerShown: true, title: 'Carro', headerBackTitle: 'Voltar' }}
+      />
+      <Stack.Screen
+        name="carros/[id]/servico"
+        options={{ headerShown: true, title: 'Registrar serviço', headerBackTitle: 'Voltar' }}
+      />
+      <Stack.Screen
+        name="carros/[id]/pedido"
+        options={{ headerShown: true, title: 'Pedido de manutenção', headerBackTitle: 'Voltar' }}
+      />
+      <Stack.Screen
         name="carros/[id]/itens"
         options={{ headerShown: true, title: '', headerBackTitle: 'Voltar' }}
       />

@@ -1,18 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert, Share } from 'react-native';
 
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
+import { resumoFrota, type ResumoCarro } from '@/api/veiculos';
 import PainelFrota from '@/app/(dono)/(abas)/index';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('@/api/veiculos', () => ({ resumoFrota: jest.fn() }));
 jest.mock('@/api/frota', () => ({
   minhaFrota: jest.fn(),
   criarFrota: jest.fn(),
   gerarNovoCodigo: jest.fn(),
 }));
 
+const resumoMock = resumoFrota as jest.Mock;
 const minhaFrotaMock = minhaFrota as jest.Mock;
 const criarFrotaMock = criarFrota as jest.Mock;
 const gerarNovoCodigoMock = gerarNovoCodigo as jest.Mock;
@@ -48,6 +51,7 @@ afterEach(() => client?.clear());
 
 beforeEach(() => {
   jest.clearAllMocks();
+  resumoMock.mockResolvedValue([]);
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
 });
@@ -160,5 +164,127 @@ describe('falha ao carregar', () => {
     expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
     await fireEvent.press(screen.getByText('Tentar de novo'));
     expect(await screen.findByText('Código da frota: FRT-TEST')).toBeTruthy();
+  });
+});
+
+function carro(extra: Partial<ResumoCarro> & { vehicle_id: string; placa: string }): ResumoCarro {
+  return {
+    marca: 'Chevrolet',
+    modelo: 'Onix',
+    status: 'em_dia',
+    proxima_data: null,
+    proximo_item: null,
+    estimada: false,
+    motorista_nome: null,
+    ...extra,
+  };
+}
+
+describe('lista de carros', () => {
+  beforeEach(() => minhaFrotaMock.mockResolvedValue(frota));
+
+  it('consulta o resumo da frota pelo id da frota', async () => {
+    await renderizar();
+    await screen.findByText('Código da frota: FRT-TEST');
+    await waitFor(() => expect(resumoMock).toHaveBeenCalledWith('f1'));
+  });
+
+  it('frota sem carros mostra a lista vazia', async () => {
+    await renderizar();
+    expect(
+      await screen.findByText('Nenhum carro cadastrado. Toque em "Adicionar carro".'),
+    ).toBeTruthy();
+  });
+
+  it('mostra o card com placa, modelo, status, próxima manutenção e motorista', async () => {
+    resumoMock.mockResolvedValue([
+      carro({
+        vehicle_id: 'v1',
+        placa: 'ABC1D23',
+        status: 'urgente',
+        proxima_data: '2026-10-30',
+        proximo_item: 'Óleo do motor',
+        motorista_nome: 'Ana',
+      }),
+    ]);
+    await renderizar();
+    expect(await screen.findByText('ABC1D23 · Chevrolet Onix')).toBeTruthy();
+    expect(screen.getByText('Urgente')).toBeTruthy();
+    expect(screen.getByText('Próxima: Óleo do motor em 30/10/2026')).toBeTruthy();
+    expect(screen.getByText('Motorista: Ana')).toBeTruthy();
+    expect(screen.queryByText('previsão estimada')).toBeNull();
+    expect(
+      screen.queryByText('Nenhum carro cadastrado. Toque em "Adicionar carro".'),
+    ).toBeNull();
+  });
+
+  it('carro sem motorista aparece como Livre e previsão estimada é sinalizada', async () => {
+    resumoMock.mockResolvedValue([
+      carro({
+        vehicle_id: 'v1',
+        placa: 'ABC1D23',
+        proxima_data: '2026-10-30',
+        proximo_item: 'Pneus',
+        estimada: true,
+      }),
+    ]);
+    await renderizar();
+    expect(await screen.findByText('Livre')).toBeTruthy();
+    expect(screen.getByText('previsão estimada')).toBeTruthy();
+  });
+
+  it('carro sem previsão não inventa data', async () => {
+    resumoMock.mockResolvedValue([
+      carro({ vehicle_id: 'v1', placa: 'ABC1D23', status: 'sem_historico' }),
+    ]);
+    await renderizar();
+    expect(await screen.findByText('Sem previsão de manutenção')).toBeTruthy();
+    expect(screen.getByText('Sem histórico')).toBeTruthy();
+  });
+
+  it('ordena por severidade: vencido, urgente, sem histórico, próximo, em dia', async () => {
+    resumoMock.mockResolvedValue([
+      carro({ vehicle_id: 'a', placa: 'AAA1A11', status: 'em_dia' }),
+      carro({ vehicle_id: 'b', placa: 'BBB2B22', status: 'proximo' }),
+      carro({ vehicle_id: 'c', placa: 'CCC3C33', status: 'sem_historico' }),
+      carro({ vehicle_id: 'd', placa: 'DDD4D44', status: 'urgente' }),
+      carro({ vehicle_id: 'e', placa: 'EEE5E55', status: 'vencido' }),
+      carro({ vehicle_id: 'f', placa: 'FFF6F66', status: 'vencido' }),
+    ]);
+    await renderizar();
+    await screen.findByText('AAA1A11 · Chevrolet Onix');
+    const placas = screen
+      .getAllByText(/· Chevrolet Onix$/)
+      .map((n) => String(n.props.children).split(' ')[0]);
+    expect(placas).toEqual(['EEE5E55', 'FFF6F66', 'DDD4D44', 'CCC3C33', 'BBB2B22', 'AAA1A11']);
+  });
+
+  it('tocar no card abre o detalhe do carro', async () => {
+    resumoMock.mockResolvedValue([carro({ vehicle_id: 'v9', placa: 'ABC1D23' })]);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('ABC1D23 · Chevrolet Onix'));
+    expect(mockPush).toHaveBeenCalledWith('/carros/v9');
+  });
+
+  it('puxar para atualizar refaz a consulta', async () => {
+    await renderizar();
+    await screen.findByText('Nenhum carro cadastrado. Toque em "Adicionar carro".');
+    resumoMock.mockResolvedValue([carro({ vehicle_id: 'v1', placa: 'ABC1D23' })]);
+    const lista = screen.getByTestId('painel-frota');
+    await act(async () => {
+      await lista.props.refreshControl.props.onRefresh();
+    });
+    expect(await screen.findByText('ABC1D23 · Chevrolet Onix')).toBeTruthy();
+    expect(resumoMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falha ao listar os carros mostra o erro e permite tentar de novo sem esconder o código', async () => {
+    resumoMock.mockRejectedValueOnce({ message: 'Network request failed' });
+    resumoMock.mockResolvedValue([carro({ vehicle_id: 'v1', placa: 'ABC1D23' })]);
+    await renderizar();
+    expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
+    expect(screen.getByText('Código da frota: FRT-TEST')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Tentar de novo'));
+    expect(await screen.findByText('ABC1D23 · Chevrolet Onix')).toBeTruthy();
   });
 });

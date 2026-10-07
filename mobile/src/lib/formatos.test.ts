@@ -1,6 +1,7 @@
 import {
   dataBrParaIso,
   formatarData,
+  formatarDataBrt,
   formatarDiaMes,
   formatarKm,
   formatarReais,
@@ -88,5 +89,18 @@ describe('lerReais', () => {
   });
   it.each(['', 'abc', '-5', '1,234', '10,5,5', 'R$ 10'])('rejeita %p', (texto) => {
     expect(lerReais(texto)).toBeNull();
+  });
+});
+
+describe('formatarDataBrt', () => {
+  it('converte o instante para o horário de Brasília', () => {
+    expect(formatarDataBrt('2026-10-07T15:00:00+00:00')).toBe('07/10/2026');
+    // 01:00 UTC ainda é o dia anterior em Brasília (UTC-3)
+    expect(formatarDataBrt('2026-10-08T01:00:00+00:00')).toBe('07/10/2026');
+    expect(formatarDataBrt('2026-01-01T02:59:59Z')).toBe('31/12/2025');
+  });
+  it('retorna traço para nulo ou inválido', () => {
+    expect(formatarDataBrt(null)).toBe('—');
+    expect(formatarDataBrt('lixo')).toBe('—');
   });
 });

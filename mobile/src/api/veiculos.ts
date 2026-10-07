@@ -1,3 +1,4 @@
+import type { StatusItem } from '@/lib/status';
 import { supabase } from '@/lib/cliente';
 import { comoErroApp } from '@/lib/erros';
 
@@ -127,4 +128,165 @@ export async function sugestaoCusto(itemId: string): Promise<number | null> {
   const { data, error } = await supabase.rpc('custo_medio_item', { p_item_id: itemId });
   if (error) throw comoErroApp(error);
   return data ?? null;
+}
+
+export type ResumoCarro = {
+  vehicle_id: string;
+  placa: string;
+  marca: string;
+  modelo: string;
+  status: StatusItem;
+  proxima_data: string | null;
+  proximo_item: string | null;
+  estimada: boolean;
+  motorista_nome: string | null;
+};
+
+// Os tipos gerados tratam as colunas retornadas pelas RPCs como não nulas, mas o banco devolve null
+// (carro sem previsão, sem motorista, item sem km ou sem data).
+export async function resumoFrota(fleetId: string): Promise<ResumoCarro[]> {
+  const { data, error } = await supabase.rpc('resumo_frota', { p_fleet_id: fleetId });
+  if (error) throw comoErroApp(error);
+  return data as ResumoCarro[];
+}
+
+export type PrevisaoItem = {
+  vehicle_item_id: string;
+  nome: string;
+  proximo_km: number | null;
+  km_restante: number | null;
+  data_prevista: string | null;
+  status: StatusItem;
+  custo_estimado: number;
+};
+
+export async function previsaoItens(vehicleId: string): Promise<PrevisaoItem[]> {
+  const { data, error } = await supabase.rpc('previsao_itens', { p_vehicle_id: vehicleId });
+  if (error) throw comoErroApp(error);
+  return data as PrevisaoItem[];
+}
+
+export type StatusDoCarro = {
+  status: StatusItem;
+  proxima_data: string | null;
+  proximo_item: string | null;
+  media: number;
+  estimada: boolean;
+};
+
+export async function statusCarro(vehicleId: string): Promise<StatusDoCarro> {
+  const { data, error } = await supabase.rpc('status_carro', { p_vehicle_id: vehicleId });
+  if (error) throw comoErroApp(error);
+  const linha = (data as StatusDoCarro[] | null)?.[0];
+  if (!linha) throw comoErroApp({ message: 'Carro não encontrado.' });
+  return linha;
+}
+
+export type Veiculo = {
+  id: string;
+  fleet_id: string;
+  placa: string;
+  marca: string;
+  modelo: string;
+  ano_modelo: number;
+  cor: string;
+  km_atual: number;
+  km_dia_estimado: number;
+};
+
+export async function buscarVeiculo(id: string): Promise<Veiculo> {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado')
+    .eq('id', id)
+    .single();
+  if (error) throw comoErroApp(error);
+  return data;
+}
+
+export type OrigemKm = 'retirada' | 'devolucao' | 'atualizacao' | 'manutencao' | 'correcao_dono';
+
+export type LeituraKm = {
+  id: string;
+  km: number;
+  origem: OrigemKm;
+  capturado_em: string;
+  foto_painel_path: string | null;
+  salto_suspeito: boolean;
+};
+
+export async function leiturasKm(vehicleId: string, limite = 20): Promise<LeituraKm[]> {
+  const { data, error } = await supabase
+    .from('odometer_readings')
+    .select('id, km, origem, capturado_em, foto_painel_path, salto_suspeito')
+    .eq('vehicle_id', vehicleId)
+    .order('capturado_em', { ascending: false })
+    .limit(limite);
+  if (error) throw comoErroApp(error);
+  return data;
+}
+
+export type StatusServico = 'pendente' | 'aprovado' | 'recusado' | 'contestado';
+
+export type Servico = {
+  id: string;
+  data: string;
+  km: number;
+  oficina: string | null;
+  valor_total: number;
+  status: StatusServico;
+  motivo: string | null;
+  itens: { nome: string; valor: number | null }[];
+};
+
+export async function servicos(vehicleId: string): Promise<Servico[]> {
+  const { data, error } = await supabase
+    .from('maintenance_records')
+    .select(
+      'id, data, km, oficina, valor_total, status, motivo, maintenance_record_items(valor, nome_outro, vehicle_items(nome))',
+    )
+    .eq('vehicle_id', vehicleId)
+    .order('data', { ascending: false });
+  if (error) throw comoErroApp(error);
+  return data.map(({ maintenance_record_items, ...s }) => ({
+    ...s,
+    itens: maintenance_record_items.map((i) => ({
+      nome: i.vehicle_items?.nome ?? i.nome_outro ?? 'Outro serviço',
+      valor: i.valor,
+    })),
+  }));
+}
+
+export type FotoInspecao = {
+  id: string;
+  momento: 'retirada' | 'devolucao';
+  posicao: 'frente' | 'traseira' | 'lateral_esq' | 'lateral_dir' | 'extra';
+  path: string;
+};
+
+export type Vinculo = {
+  id: string;
+  status: 'aguardando_fotos' | 'ativo' | 'encerrado';
+  inicio_em: string;
+  fim_em: string | null;
+  km_inicio: number;
+  km_fim: number | null;
+  motorista_nome: string | null;
+  fotos: FotoInspecao[];
+};
+
+export async function vinculos(vehicleId: string): Promise<Vinculo[]> {
+  const { data, error } = await supabase
+    .from('assignments')
+    .select(
+      'id, status, inicio_em, fim_em, km_inicio, km_fim, profiles(nome), inspection_photos(id, momento, posicao, path)',
+    )
+    .eq('vehicle_id', vehicleId)
+    .order('inicio_em', { ascending: false });
+  if (error) throw comoErroApp(error);
+  return data.map(({ profiles, inspection_photos, ...v }) => ({
+    ...v,
+    motorista_nome: profiles?.nome ?? null,
+    fotos: inspection_photos,
+  }));
 }

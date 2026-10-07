@@ -3,8 +3,15 @@ import {
   atualizarItem,
   cadastrarVeiculo,
   definirHistoricoInicial,
+  buscarVeiculo,
+  leiturasKm,
   listarItens,
+  previsaoItens,
+  resumoFrota,
+  servicos,
+  statusCarro,
   sugestaoCusto,
+  vinculos,
 } from '@/api/veiculos';
 import { supabase } from '@/lib/cliente';
 import { ErroApp } from '@/lib/erros';
@@ -189,5 +196,125 @@ describe('sugestaoCusto', () => {
     expect(rpc).toHaveBeenCalledWith('custo_medio_item', { p_item_id: 'i1' });
     rpc.mockResolvedValueOnce({ data: null, error: null });
     await expect(sugestaoCusto('i1')).resolves.toBeNull();
+  });
+});
+
+describe('consultas do painel e do detalhe', () => {
+  it('resumoFrota chama a RPC sem p_hoje', async () => {
+    rpc.mockResolvedValue({ data: [{ vehicle_id: 'v1' }], error: null });
+    await expect(resumoFrota('f1')).resolves.toEqual([{ vehicle_id: 'v1' }]);
+    expect(rpc).toHaveBeenCalledWith('resumo_frota', { p_fleet_id: 'f1' });
+  });
+
+  it('resumoFrota traduz erro de negócio', async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'SEM_ACESSO', details: 'Somente o proprietário vê o resumo da frota.' },
+    });
+    await expect(resumoFrota('f1')).rejects.toMatchObject({
+      message: 'Somente o proprietário vê o resumo da frota.',
+      codigo: 'SEM_ACESSO',
+    });
+  });
+
+  it('previsaoItens chama a RPC sem p_hoje', async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    await expect(previsaoItens('v1')).resolves.toEqual([]);
+    expect(rpc).toHaveBeenCalledWith('previsao_itens', { p_vehicle_id: 'v1' });
+  });
+
+  it('statusCarro devolve a primeira linha da RPC', async () => {
+    const linha = { status: 'em_dia', proxima_data: null, proximo_item: null, media: 300, estimada: true };
+    rpc.mockResolvedValue({ data: [linha], error: null });
+    await expect(statusCarro('v1')).resolves.toEqual(linha);
+    expect(rpc).toHaveBeenCalledWith('status_carro', { p_vehicle_id: 'v1' });
+  });
+
+  it('statusCarro sem linhas é erro', async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    await expect(statusCarro('v1')).rejects.toBeInstanceOf(ErroApp);
+  });
+
+  it('buscarVeiculo seleciona o carro pelo id', async () => {
+    const single = jest.fn().mockResolvedValue({ data: { id: 'v1' }, error: null });
+    const eq = jest.fn().mockReturnValue({ single });
+    const select = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select });
+    await expect(buscarVeiculo('v1')).resolves.toEqual({ id: 'v1' });
+    expect(from).toHaveBeenCalledWith('vehicles');
+    expect(eq).toHaveBeenCalledWith('id', 'v1');
+  });
+
+  it('leiturasKm ordena por capturado_em desc e limita em 20 por padrão', async () => {
+    const limit = jest.fn().mockResolvedValue({ data: [{ id: 'l1' }], error: null });
+    const order = jest.fn().mockReturnValue({ limit });
+    const eq = jest.fn().mockReturnValue({ order });
+    const select = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select });
+    await expect(leiturasKm('v1')).resolves.toEqual([{ id: 'l1' }]);
+    expect(from).toHaveBeenCalledWith('odometer_readings');
+    expect(select.mock.calls[0][0]).toBe('id, km, origem, capturado_em, foto_painel_path, salto_suspeito');
+    expect(eq).toHaveBeenCalledWith('vehicle_id', 'v1');
+    expect(order).toHaveBeenCalledWith('capturado_em', { ascending: false });
+    expect(limit).toHaveBeenCalledWith(20);
+  });
+
+  it('servicos junta o nome do item do plano ou o nome avulso, ordenado por data desc', async () => {
+    const order = jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: 's1',
+          data: '2026-09-20',
+          km: 44000,
+          oficina: null,
+          valor_total: 100,
+          status: 'aprovado',
+          motivo: null,
+          maintenance_record_items: [
+            { valor: 60, nome_outro: null, vehicle_items: { nome: 'Óleo do motor' } },
+            { valor: 40, nome_outro: 'Lanterna', vehicle_items: null },
+          ],
+        },
+      ],
+      error: null,
+    });
+    const eq = jest.fn().mockReturnValue({ order });
+    const select = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select });
+    const r = await servicos('v1');
+    expect(from).toHaveBeenCalledWith('maintenance_records');
+    expect(order).toHaveBeenCalledWith('data', { ascending: false });
+    expect(r[0].itens).toEqual([
+      { nome: 'Óleo do motor', valor: 60 },
+      { nome: 'Lanterna', valor: 40 },
+    ]);
+    expect(r[0]).not.toHaveProperty('maintenance_record_items');
+  });
+
+  it('vinculos traz o nome do motorista (só a coluna nome) e as fotos', async () => {
+    const order = jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'a1',
+          status: 'ativo',
+          inicio_em: '2026-10-01T12:00:00+00:00',
+          fim_em: null,
+          km_inicio: 45000,
+          km_fim: null,
+          profiles: { nome: 'Ana' },
+          inspection_photos: [{ id: 'p1', momento: 'retirada', posicao: 'frente', path: 'x.jpg' }],
+        },
+      ],
+      error: null,
+    });
+    const eq = jest.fn().mockReturnValue({ order });
+    const select = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ select });
+    const r = await vinculos('v1');
+    expect(from).toHaveBeenCalledWith('assignments');
+    expect(select.mock.calls[0][0]).toContain('profiles(nome)');
+    expect(select.mock.calls[0][0]).not.toContain('*');
+    expect(r[0].motorista_nome).toBe('Ana');
+    expect(r[0].fotos).toHaveLength(1);
   });
 });

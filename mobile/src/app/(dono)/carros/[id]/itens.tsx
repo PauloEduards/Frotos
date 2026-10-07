@@ -378,7 +378,10 @@ function NovoItem({ vehicleId, onFechar }: { vehicleId: string; onFechar: () => 
     mutationFn: (v: PlanoItem & { nome: string }) => adicionarItem(vehicleId, v),
     onSuccess: async () => {
       onFechar();
-      await queryClient.invalidateQueries({ queryKey: ['itens', vehicleId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['itens', vehicleId] }),
+        queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
+      ]);
     },
     onError: (e) => setErroGeral(mensagemErro(e)),
   });
