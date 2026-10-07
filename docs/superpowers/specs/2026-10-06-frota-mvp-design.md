@@ -22,7 +22,9 @@ O app resolve isso com:
 
 ### Piloto
 - Uma frota de **5 carros** onde trabalha o mecânico (primo do autor), que valida as previsões e acompanha o uso.
-- Distribuição por **links de teste**: Android via build interno; iPhone via TestFlight, o que **exige a conta Apple Developer (cerca de US$ 99 por ano)**.
+- **Foco em Android (Samsung)**: o piloto é desenvolvido e testado primeiro em Android.
+- O app é construído para **funcionar também no iPhone sem mudanças de código**. O único bloqueio para o iPhone é a **conta Apple Developer (cerca de US$ 99 por ano)**, exigida até para distribuir builds de teste pelo TestFlight.
+- Distribuição por **links de teste** (build interno do Android).
 - Publicação nas lojas só depois da validação.
 
 ### Critério de sucesso do MVP
@@ -37,17 +39,18 @@ O app resolve isso com:
 ### Entra no MVP
 1. Login por e-mail e senha. Na primeira entrada, a pessoa escolhe o papel: **proprietário** ou **motorista**.
 2. Criação da frota com **código de convite** (ex.: `FRT-7K2M`), que o dono pode gerar de novo.
-3. Cadastro de carros com o estado inicial de cada item de manutenção.
+3. Cadastro de carros com **seleção de marca, modelo e ano** (tabela FIPE) e cor, além do estado inicial de cada item de manutenção.
 4. Plano de manutenção com itens padrão, ajustável por carro, com a opção **"alterar em todos os carros da frota"**.
 5. Entrada do motorista na frota pelo código, **com aprovação do dono**.
 6. **Retirada** e **devolução** do carro, com km e 4 fotos obrigatórias.
 7. Atualização de km a qualquer momento, com **lembrete semanal**.
 8. **Foto do painel obrigatória** quando o km dá um salto acima do limite.
-9. Registro de manutenção realizada, com **permissões configuráveis**.
-10. **Ocorrências** relatadas pelo motorista.
-11. Painel do dono: status da frota, previsões e **previsão de gastos de 30, 60 e 90 dias, com gráficos**.
-12. Tela do motorista: o carro atual, as próximas manutenções e as ações rápidas.
-13. Notificações push, com cópia dentro do app.
+9. **Quem leva o carro à oficina:** a frota escolhe entre "o proprietário leva" e "motoristas levam". Em qualquer modo, o dono pode enviar um **pedido de manutenção** a um motorista.
+10. Registro do **serviço feito** por quem levou o carro, com **permissões configuráveis**.
+11. **Ocorrências** relatadas pelo motorista.
+12. Painel do dono: status da frota, previsões e **previsão de gastos de 30, 60 e 90 dias, com gráficos**.
+13. Tela do motorista: o carro atual, as próximas manutenções e as ações rápidas.
+14. Notificações push, com cópia dentro do app.
 
 ### Fora do MVP (fases futuras)
 - Cobrança e mensalidade por carro (o piloto é gratuito).
@@ -67,7 +70,9 @@ O app resolve isso com:
 | Camada | Tecnologia |
 |---|---|
 | App (Android + iPhone) | **React Native com Expo**, em **TypeScript**. Um único app, com telas diferentes conforme o papel do usuário. |
-| Builds de teste | Expo EAS (build interno para Android, TestFlight para iPhone). |
+| Builds de teste | Expo EAS: build interno para Android agora; TestFlight para iPhone quando houver conta Apple Developer. |
+| Compatibilidade | Só bibliotecas que suportam Android **e** iOS (SDK do Expo). A configuração de iOS (identificador do app, textos de permissão de câmera e notificações) já entra no projeto desde o início. |
+| Dados de veículos | Tabela FIPE via API pública gratuita (Parallelum), consultada por uma Edge Function com cache no banco. |
 | Backend | **Supabase**: PostgreSQL, login (Auth), armazenamento de fotos (Storage), funções no banco, tarefas agendadas (pg_cron) e Edge Functions para envio de push. |
 | Notificações | Expo Push Notifications. |
 | Segurança | **Row Level Security (RLS)** no PostgreSQL: as regras de acesso valem no banco, não só na tela. |
@@ -81,10 +86,15 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
 ### 4.1 Proprietário: configuração inicial
 1. Cria a conta e escolhe o papel "proprietário".
 2. Cria a frota e recebe o código de convite.
-3. Cadastra cada carro: placa, modelo, ano, km atual e **estimativa de km por dia** (padrão: 200).
-4. Para cada item do plano padrão, informa o km e a data da última troca, se souber. **O que ficar em branco aparece como ⚪ "sem histórico, revisar".**
-5. Opcionalmente, ajusta intervalos e custos estimados. Ao confirmar uma alteração, escolhe entre **"só este carro"** e **"alterar em todos os carros da frota"**.
-6. Envia o código aos motoristas (por exemplo, no grupo de WhatsApp).
+3. Escolhe o **modo de manutenção** da frota: "o proprietário leva" ou "motoristas levam" (ver 5.3).
+4. Cadastra cada carro:
+   - **marca → modelo → ano**, em listas de seleção encadeadas da tabela FIPE
+   - **cor**, em lista fixa: branco, preto, prata, cinza, vermelho, azul, outra
+   - placa, km atual e **estimativa de km por dia** (padrão: 300)
+   - se a FIPE estiver fora do ar ou o modelo não aparecer, a opção **"não encontrei meu modelo"** libera campos de texto
+5. Para cada item do plano padrão, informa o km e a data da última troca, se souber. **O que ficar em branco aparece como ⚪ "sem histórico, revisar".**
+6. Opcionalmente, ajusta intervalos e custos estimados. Ao confirmar uma alteração, escolhe entre **"só este carro"** e **"alterar em todos os carros da frota"**.
+7. Envia o código aos motoristas (por exemplo, no grupo de WhatsApp).
 
 ### 4.2 Motorista: entrada e retirada
 1. Cria a conta, escolhe o papel "motorista" e digita o código da frota.
@@ -100,7 +110,8 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
 - **Atualizar km:** a qualquer momento. Se passar 7 dias sem atualizar, recebe um lembrete.
 - **Ver previsão:** próximas manutenções do carro atual, com status e data prevista.
 - **Relatar ocorrência:** escolhe o tipo, descreve e anexa fotos.
-- **Registrar manutenção:** só aparece se a permissão efetiva permitir (ver 5.2).
+- **Pedidos de manutenção:** vê os pedidos que o dono enviou para ele, com itens e prazo.
+- **Registrar serviço feito:** aparece quando há um pedido aberto para ele ou quando a frota está no modo "motoristas levam" e a permissão dele permite (ver 5.3 e 5.4).
 - **Devolução:** km e as mesmas 4 fotos obrigatórias. O carro volta a ficar livre.
 
 ### 4.4 Proprietário: uso diário
@@ -108,7 +119,8 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
 - Aprova ou recusa: entradas de motoristas e manutenções pendentes.
 - Revisa leituras de km que exigiram foto do painel.
 - Acompanha e resolve ocorrências.
-- Registra manutenções (sem exigência de foto da nota).
+- Registra os serviços feitos quando ele mesmo leva o carro (sem exigência de foto da nota).
+- Envia **pedidos de manutenção** ao motorista atual de um carro.
 - Consulta a previsão de gastos (ver 6.4).
 - Remove motoristas da frota. Se o motorista estiver com um carro, o vínculo é encerrado e o carro fica livre.
 
@@ -121,15 +133,17 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
 | Tabela | Campos principais |
 |---|---|
 | `profiles` | `id` (= usuário do Auth), `nome`, `telefone`, `papel` (`proprietario` / `motorista`), `expo_push_token` |
-| `fleets` | `id`, `owner_id`, `nome`, `codigo_convite` (único), configurações: `limite_salto_km_dia` (padrão 1500), `limiar_amarelo_km` (1000), `limiar_amarelo_dias` (7), `limiar_laranja_km` (300) |
+| `fleets` | `id`, `owner_id`, `nome`, `codigo_convite` (único), configurações: `modo_manutencao` (`proprietario_leva` / `motoristas_levam`; padrão `proprietario_leva`), `limite_salto_km_dia` (padrão 350), `limiar_amarelo_km` (1000), `limiar_amarelo_dias` (7), `limiar_laranja_km` (300) |
 | `fleet_members` | `fleet_id`, `driver_id`, `status` (`pendente` / `ativo` / `removido`), `nivel_manutencao` (`sem_permissao` / `com_aprovacao` / `confiavel`; padrão `com_aprovacao`) |
-| `vehicles` | `id`, `fleet_id`, `placa`, `modelo`, `ano`, `km_atual`, `km_dia_estimado` (padrão 200), `exige_aprovacao_sempre` (bool), `ativo` |
+| `vehicles` | `id`, `fleet_id`, `placa`, `marca`, `modelo`, `ano_modelo`, `cor`, `fipe_codigo` (nulo quando digitado à mão), `km_atual`, `km_dia_estimado` (padrão 300), `exige_aprovacao_sempre` (bool), `ativo` |
+| `fipe_cache` | Respostas da API FIPE (marcas, modelos e anos) com data de atualização, para não consultar a API a cada cadastro |
 | `maintenance_catalog` | Itens padrão: `nome`, `intervalo_km`, `intervalo_meses`, `custo_sugerido` |
 | `vehicle_items` | `vehicle_id`, `catalog_id` (opcional), `nome`, `intervalo_km`, `intervalo_meses`, `ultimo_km` (pode ser nulo), `ultima_data` (pode ser nula), `custo_estimado`, `status_atual`, `ativo` |
 | `assignments` | `vehicle_id`, `driver_id`, `inicio_em`, `fim_em`, `km_inicio`, `km_fim`, `status` (`aguardando_fotos` / `ativo` / `encerrado`) |
 | `odometer_readings` | `vehicle_id`, `autor_id`, `km`, `origem` (`retirada` / `devolucao` / `atualizacao` / `manutencao` / `correcao_dono`), `foto_painel_path` (opcional), `capturado_em`, `recebido_em` |
 | `inspection_photos` | `assignment_id`, `momento` (`retirada` / `devolucao`), `posicao` (`frente` / `traseira` / `lateral_esq` / `lateral_dir` / `extra`), `path`, `capturado_em`, `recebido_em` |
-| `maintenance_records` | `vehicle_id`, `autor_id`, `km`, `data`, `valor_total`, `nota_foto_path`, `status` (`pendente` / `aprovado` / `recusado` / `contestado`), `revisado_por`, `revisado_em`, `motivo` |
+| `maintenance_requests` | Pedido de manutenção do dono: `vehicle_id`, `driver_id`, itens pedidos, `prazo`, `observacao`, `status` (`aberto` / `concluido` / `cancelado`) |
+| `maintenance_records` | `vehicle_id`, `autor_id`, `request_id` (opcional), `oficina` (texto, opcional), `km`, `data`, `valor_total`, `nota_foto_path`, `status` (`pendente` / `aprovado` / `recusado` / `contestado`), `revisado_por`, `revisado_em`, `motivo` |
 | `maintenance_record_items` | `record_id`, `vehicle_item_id`, `valor` (opcional) |
 | `incidents` | `vehicle_id`, `driver_id`, `tipo` (`mecanico` / `acidente_leve` / `acidente_grave` / `outro`), `descricao`, `status` (`aberta` / `resolvida`), `resolvida_em` |
 | `incident_photos` | `incident_id`, `path`, `capturado_em` |
@@ -161,14 +175,43 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
   - vê os próprios registros (leituras, manutenções, ocorrências)
 - **Motorista `pendente` ou `removido`:** não vê dados da frota.
 - **Vínculos:** um carro tem no máximo um vínculo `ativo` ou `aguardando_fotos`, e um motorista também. Isso é garantido por índices únicos parciais.
+- Só o motorista com vínculo ativo no carro pode registrar serviço, km ou ocorrência nele.
 
-**Permissão efetiva de manutenção** (função no banco):
-- Se `nivel_manutencao = sem_permissao` → o motorista não pode registrar.
-- Se `vehicles.exige_aprovacao_sempre = true` → o registro entra como `pendente`, mesmo para motorista confiável.
-- Se `nivel_manutencao = com_aprovacao` → o registro entra como `pendente`.
-- Se `nivel_manutencao = confiavel` → o registro entra como `aprovado`. O dono é avisado e pode **contestar**, o que desfaz o registro.
-- Registros de motorista **exigem foto da nota ou do serviço**. Registros do dono não exigem.
-- Só o motorista com vínculo ativo no carro pode registrar manutenção, km ou ocorrência nele.
+### 5.3 Quem leva o carro à oficina
+
+O registro de manutenção é feito por **quem levou o carro**, logo depois do serviço. A frota escolhe um modo (`fleets.modo_manutencao`), que pode ser trocado a qualquer momento:
+
+| | **O proprietário leva** (padrão) | **Motoristas levam** |
+|---|---|---|
+| Quem registra o serviço feito | O dono. O motorista só registra se houver um **pedido** aberto para ele. | O dono e os motoristas cuja permissão permite (ver 5.4). |
+| Alertas de 🟡, 🟠 e 🔴 para o dono | "Agende a manutenção do carro X" | Informativo: "O carro X precisa de manutenção; o motorista foi avisado" |
+| Alertas de 🟡, 🟠 e 🔴 para o motorista | Informativo: "Manutenção próxima; o proprietário vai combinar com você" | "Leve o carro X à oficina até [data]" |
+
+**Pedido de manutenção** (vale nos dois modos):
+1. **Envio:** o dono escolhe o carro, os itens a fazer (pré-marcados com os itens 🟡, 🟠 e 🔴), um prazo e uma observação opcional. O pedido vai para o motorista com vínculo ativo naquele carro.
+2. **Autorização:** o motorista recebe a notificação. O pedido **autoriza o registro daqueles itens**, mesmo que o nível do motorista seja `sem_permissao`.
+3. **Registro:** depois do serviço, o motorista abre o pedido e toca em **"Registrar serviço feito"**. O formulário já vem com os itens do pedido, e ele pode desmarcar o que não foi feito ou adicionar outros itens.
+4. **Encerramento:** quando o registro é aprovado, o pedido vira `concluido`. O dono pode cancelar um pedido aberto. Se o motorista devolver o carro, o pedido aberto é cancelado automaticamente e o dono é avisado.
+5. **Lembrete:** se o prazo passar sem registro, o dono e o motorista recebem um lembrete.
+
+**Formulário "Registrar serviço feito"** (o mesmo para dono e motorista):
+- itens feitos (checklist dos itens do carro e a opção "outro serviço", com nome)
+- km do painel no momento do serviço (passa pela validação de km da seção 5.5)
+- data
+- valor total e, opcionalmente, valor por item
+- nome da oficina (opcional)
+- foto da nota ou do serviço: **obrigatória para motorista**, opcional para o dono
+
+### 5.4 Permissão efetiva do motorista para registrar serviço
+Função no banco, avaliada nesta ordem:
+1. **Pode registrar?**
+   - Com **pedido aberto** para ele → sim, para os itens do pedido e outros itens que ele adicionar.
+   - **Sem pedido**, no modo `motoristas_levam` → sim, se `nivel_manutencao` for diferente de `sem_permissao`.
+   - **Sem pedido**, no modo `proprietario_leva` → não.
+2. **Status inicial do registro:**
+   - Se `vehicles.exige_aprovacao_sempre = true` → `pendente`, mesmo para motorista confiável.
+   - Se `nivel_manutencao = confiavel` → `aprovado`. O dono é avisado e pode **contestar**, o que desfaz o registro.
+   - Nos demais casos (`com_aprovacao`, ou `sem_permissao` agindo por pedido) → `pendente`.
 
 **Aprovação e contestação de manutenção** (função atômica no banco):
 - **Ao aprovar:**
@@ -180,10 +223,10 @@ Princípio: **regras de negócio críticas ficam no banco**, em funções SQL: p
   - muda o status do registro para `contestado`
 - Todo registro guarda quem criou, quem revisou e quando.
 
-### 5.3 Validação de km (função no banco)
+### 5.5 Validação de km (função no banco)
 1. **Km menor que a última leitura:** recusado, com mensagem clara (ex.: "O km informado (45.200) é menor que o último registro (45.870)."). Só o dono pode registrar uma correção (origem `correcao_dono`).
 2. **Salto acima do limite:**
-   - **Regra:** se (km novo − última leitura) > `limite_salto_km_dia` × max(1, dias desde a última leitura), a leitura **exige foto do painel**.
+   - **Regra:** se (km novo − última leitura) > `limite_salto_km_dia` × max(1, dias desde a última leitura), a leitura **exige foto do painel**. Com o padrão de 350 km/dia (média real de cerca de 300 km/dia mais uma folga), uma leitura 5 dias depois da anterior pode subir até 1.750 km sem foto.
    - **Captura:** a foto é tirada **apenas pela câmera dentro do app**, sem opção de galeria.
    - **Histórico:** ela fica no histórico do carro junto com as fotos de retirada e devolução.
    - **Aviso:** o dono recebe notificação para revisar.
@@ -247,14 +290,16 @@ Push via Expo, com **cópia na tabela `notifications`** (central de avisos dentr
 
 | Destinatário | Evento |
 |---|---|
-| Dono | Item de um carro muda para 🟡, 🟠 ou 🔴 (somente na **mudança** de status) |
+| Dono | Item de um carro muda para 🟡, 🟠 ou 🔴 (somente na **mudança** de status; o texto depende do modo de manutenção, ver 5.3) |
 | Dono | Nova ocorrência (`acidente_grave` com prioridade alta) |
 | Dono | Motorista pede entrada na frota |
-| Dono | Manutenção pendente de aprovação, ou registrada por motorista confiável |
+| Dono | Serviço registrado por motorista: pendente de aprovação, ou já aprovado (motorista confiável) |
+| Dono | Pedido de manutenção com prazo vencido, ou cancelado porque o motorista devolveu o carro |
 | Dono | Leitura de km com foto do painel (salto acima do limite) |
 | Motorista | Lembrete semanal: 7 dias sem atualizar o km do carro atual |
-| Motorista | Item do carro atual muda para 🟡, 🟠 ou 🔴 |
-| Motorista | Entrada na frota aprovada; manutenção aprovada, recusada ou contestada |
+| Motorista | Item do carro atual muda para 🟡, 🟠 ou 🔴 (texto conforme o modo de manutenção) |
+| Motorista | Novo pedido de manutenção; prazo do pedido vencido |
+| Motorista | Entrada na frota aprovada; serviço aprovado, recusado ou contestado |
 
 **Execução:**
 - **Tarefa diária** (pg_cron): recalcula os status de todos os itens, detecta as mudanças, gera as notificações e verifica os lembretes semanais.
@@ -269,6 +314,7 @@ Push via Expo, com **cópia na tabela `notifications`** (central de avisos dentr
 - **Compressão:** as fotos são redimensionadas e comprimidas antes do envio (cerca de 300 a 500 KB cada) para economizar o plano de dados do motorista.
 - **Horários:** cada foto e leitura guarda o horário de captura (celular) e o de recebimento (servidor).
 - **Fotos obrigatórias e do painel:** são tiradas apenas pela câmera do app.
+- **FIPE indisponível:** o cadastro do carro continua funcionando, com marca, modelo e ano digitados à mão.
 - **Mensagens de erro** em português claro, dizendo o que aconteceu e o que fazer.
 - **Falha de push:** a notificação continua disponível na central de avisos do app.
 
@@ -280,17 +326,20 @@ Push via Expo, com **cópia na tabela `notifications`** (central de avisos dentr
   - cálculo da média diária, previsão por item e status, incluindo casos limite: sem histórico, só km, só data, fallback da estimativa
   - projeção de gastos com itens repetidos no período
   - políticas de RLS: dono, motorista ativo, pendente e removido, motorista de outra frota
-  - permissão efetiva de manutenção (todas as combinações de nível × trava do carro)
+  - permissão efetiva de registro (todas as combinações de modo da frota × pedido aberto × nível do motorista × trava do carro)
+  - ciclo do pedido de manutenção: aberto → concluído, cancelado pelo dono, cancelado na devolução
   - aprovação e contestação atômicas
   - validação de km: menor que a última, salto com e sem foto do painel
   - unicidade dos vínculos
+- **Edge Function FIPE:** uso do cache, e erro tratado quando a API estiver fora do ar (o app cai para os campos de texto).
 - **App:** testes unitários (Jest) para formatação, fila de envio e regras de tela; testes de componentes nas telas principais.
+- **Dispositivos:** testes manuais em Android (Samsung). No iPhone, só quando houver conta Apple Developer.
 - **Dados de exemplo:** script que cria uma frota fictícia com 5 carros, motoristas e histórico, para testes manuais.
 - **Roteiro do piloto:** passo a passo para o dono e os motoristas na primeira semana.
 
 ---
 
 ## 10. Pendências para antes do piloto
-- Validar com o mecânico os intervalos e custos do catálogo padrão (seção 5.1).
-- Levantar os modelos dos 5 carros da frota piloto.
-- Confirmar se o dono e os motoristas usam iPhone (o que define a necessidade da conta Apple Developer já no piloto).
+- Validar com o mecânico os intervalos e custos do catálogo padrão (seção 5.1). O autor confirma depois; os valores atuais são provisórios e ficam editáveis.
+- Definir o modo de manutenção da frota piloto ("o proprietário leva" ou "motoristas levam").
+- Conta Apple Developer, somente se o piloto precisar incluir iPhone.
