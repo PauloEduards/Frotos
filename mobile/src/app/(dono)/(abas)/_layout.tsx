@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { contarNaoLidos } from '@/api/avisos';
 import { minhaFrota } from '@/api/frota';
 import { contarPendencias } from '@/api/pendencias';
 import { cores } from '@/lib/tema';
@@ -42,6 +43,12 @@ export default function AbasDono() {
     refetchInterval: 60_000,
   });
   const pendencias = total.data ?? 0;
+  const naoLidos = useQuery({
+    queryKey: ['avisos', 'contagem'],
+    queryFn: contarNaoLidos,
+    refetchInterval: 60_000,
+  });
+  const avisos = naoLidos.data ?? 0;
 
   return (
     <Tabs
@@ -58,6 +65,7 @@ export default function AbasDono() {
             title: a.titulo,
             tabBarIcon: ({ color, size }) => <Ionicons name={a.icone} size={size} color={color} />,
             ...(a.nome === 'pendencias' ? { tabBarBadge: pendencias > 0 ? pendencias : undefined } : {}),
+            ...(a.nome === 'avisos' ? { tabBarBadge: avisos > 0 ? avisos : undefined } : {}),
             ...(a.nome === 'index' ? { headerRight: BotaoConfiguracoes } : {}),
           }}
         />

@@ -2,6 +2,8 @@
 
 Backend (Supabase) do MVP de manutenção de frotas.
 
+O app do proprietário (Expo) fica em [`mobile/`](mobile/README.md).
+
 ## Pré-requisitos
 
 - Node 20+

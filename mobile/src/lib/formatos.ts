@@ -84,3 +84,12 @@ export function lerReais(texto: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
   return Number(t);
 }
+
+/** Data e hora ('dd/mm/aaaa hh:mm') de um instante, no horário de Brasília. */
+export function formatarDataHoraBrt(instante: string | null): string {
+  if (!instante) return '—';
+  const t = new Date(instante).getTime();
+  if (Number.isNaN(t)) return '—';
+  const brt = new Date(t + BRASILIA_MS).toISOString();
+  return `${formatarData(brt)} ${brt.slice(11, 16)}`;
+}

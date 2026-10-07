@@ -2,6 +2,7 @@ import {
   dataBrParaIso,
   formatarData,
   formatarDataBrt,
+  formatarDataHoraBrt,
   formatarDiaMes,
   formatarKm,
   formatarReais,
@@ -102,5 +103,13 @@ describe('formatarDataBrt', () => {
   it('retorna traço para nulo ou inválido', () => {
     expect(formatarDataBrt(null)).toBe('—');
     expect(formatarDataBrt('lixo')).toBe('—');
+  });
+});
+
+describe('formatarDataHoraBrt', () => {
+  it('converte para Brasília', () => {
+    expect(formatarDataHoraBrt('2026-10-07T11:00:00Z')).toBe('07/10/2026 08:00');
+    expect(formatarDataHoraBrt('2026-10-07T02:30:00Z')).toBe('06/10/2026 23:30');
+    expect(formatarDataHoraBrt(null)).toBe('—');
   });
 });

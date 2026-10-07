@@ -1,56 +1,30 @@
-# Welcome to your Expo app 👋
+# Frotos - app do proprietário
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App Expo (React Native, Expo Router, TypeScript) para o proprietário acompanhar a frota: carros, manutenções, pendências, gastos, motoristas e avisos.
 
-## Get started
+## Como rodar
 
-1. Install dependencies
+1. Suba o backend na raiz do repositório com `npm run db:start` (Docker aberto). No fim da saída aparece a **anon key**.
+2. Em `mobile/`, copie `.env.example` para `.env` e preencha:
+   - `EXPO_PUBLIC_SUPABASE_URL` com o IP do seu PC na rede, por exemplo `http://192.168.0.10:54321` (não use `localhost`, o celular não enxerga).
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY` com a anon key do passo 1.
+3. Instale as dependências e inicie o app:
 
    ```bash
    npm install
-   ```
-
-2. Start the app
-
-   ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. Abra no celular Android com o **Expo Go** (celular e PC na mesma rede Wi-Fi) lendo o QR code, ou no emulador.
+5. Entre com `dono@frotos.dev` / `senha123`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Se o celular não conectar
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Libere a porta **54321** (API do Supabase) no Firewall do Windows, e confira se o IP no `.env` é o do PC na rede atual.
 
-## Get a fresh project
-
-When you're ready, run:
+## Testes
 
 ```bash
-npm run reset-project
+npx tsc --noEmit
+npx jest
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
