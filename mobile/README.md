@@ -20,7 +20,7 @@ App Expo (React Native, Expo Router, TypeScript) para o proprietário acompanhar
 
 ## Se o celular não conectar
 
-Libere a porta **54321** (API do Supabase) no Firewall do Windows, e confira se o IP no `.env` é o do PC na rede atual.
+Libere no Firewall do Windows as portas **54321** (API do Supabase) e **8081** (servidor do Expo, que entrega o app ao Expo Go), e confira se o IP no `.env` é o do PC na rede atual.
 
 ## Testes
 
