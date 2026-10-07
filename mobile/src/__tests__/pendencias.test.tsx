@@ -86,6 +86,12 @@ async function renderizar() {
 
 afterEach(() => client?.clear());
 
+/** Após uma ação bem-sucedida a tela recarrega as pendências; espera isso terminar antes do teste acabar. */
+async function esperarAtualizacao() {
+  await waitFor(() => expect(m.servicos.mock.calls.length).toBeGreaterThanOrEqual(2));
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   m.minhaFrota.mockResolvedValue({ id: 'f1' });
@@ -122,6 +128,7 @@ describe('Pendências', () => {
 
     await fireEvent.press(screen.getByText('Aprovar'));
     await waitFor(() => expect(m.revisar).toHaveBeenCalledWith('s1', 'aprovar', undefined));
+    await esperarAtualizacao();
   });
 
   it('recusa com motivo', async () => {
@@ -132,6 +139,7 @@ describe('Pendências', () => {
     await fireEvent.changeText(screen.getByLabelText('Motivo (opcional)'), 'Valor acima do combinado');
     await fireEvent.press(screen.getByText('Confirmar recusa'));
     await waitFor(() => expect(m.revisar).toHaveBeenCalledWith('s1', 'recusar', 'Valor acima do combinado'));
+    await esperarAtualizacao();
   });
 
   it('recusa sem motivo e mostra o erro do backend', async () => {
@@ -158,6 +166,7 @@ describe('Pendências', () => {
     await fireEvent.changeText(screen.getByLabelText('Motivo (opcional)'), 'Não fiz este serviço');
     await fireEvent.press(screen.getByText('Confirmar contestação'));
     await waitFor(() => expect(m.revisar).toHaveBeenCalledWith('s2', 'contestar', 'Não fiz este serviço'));
+    await esperarAtualizacao();
   });
 
   it('cancelar a contestação não chama o backend', async () => {
@@ -204,6 +213,7 @@ describe('Pendências', () => {
 
     await fireEvent.press(screen.getAllByText('Marcar como resolvida')[0]);
     await waitFor(() => expect(m.resolver).toHaveBeenCalledWith('o1'));
+    await esperarAtualizacao();
   });
 
   it('erro ao resolver aparece no cartão', async () => {

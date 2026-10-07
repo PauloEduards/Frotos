@@ -95,14 +95,15 @@ export async function servicosParaRevisar(fleetId: string): Promise<ServicoRevis
 export async function servicosRecentesDeMotoristas(fleetId: string, dias = 30): Promise<ServicoRevisao[]> {
   const { data: sessao } = await supabase.auth.getSession();
   const uid = sessao.session?.user.id;
-  let consulta = supabase
+  if (!uid) return [];
+  const consulta = supabase
     .from('maintenance_records')
     .select(SELECT_SERVICO)
     .eq('status', 'aprovado')
     .is('revisado_por', null)
     .eq('vehicles.fleet_id', fleetId)
-    .gte('criado_em', desde(dias));
-  if (uid) consulta = consulta.neq('autor_id', uid);
+    .gte('criado_em', desde(dias))
+    .neq('autor_id', uid);
   const { data, error } = await consulta.order('criado_em', { ascending: false });
   if (error) throw comoErroApp(error);
   return ((data ?? []) as unknown as LinhaServico[]).map(paraServico);
