@@ -84,4 +84,78 @@ describe('SessaoProvider', () => {
       expect(screen.getByText('carregando=false sessao=nao perfil=nenhum')).toBeTruthy(),
     );
   });
+
+  it('carregando fica true enquanto o perfil está pendente', async () => {
+    let resolver!: (p: unknown) => void;
+    buscar.mockReturnValue(new Promise((r) => (resolver = r)));
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    await render(
+      <SessaoProvider>
+        <Sonda />
+      </SessaoProvider>,
+    );
+    expect(await screen.findByText('carregando=true sessao=sim perfil=nenhum')).toBeTruthy();
+    await act(async () => resolver(perfilAna));
+    expect(await screen.findByText('carregando=false sessao=sim perfil=Ana')).toBeTruthy();
+  });
+
+  it('SIGNED_IN depois da inicialização carrega o perfil', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    buscar.mockResolvedValue(perfilAna);
+    await render(
+      <SessaoProvider>
+        <Sonda />
+      </SessaoProvider>,
+    );
+    await screen.findByText('carregando=false sessao=nao perfil=nenhum');
+    await act(() => callback('SIGNED_IN', { user: { id: 'u1' } }));
+    expect(await screen.findByText('carregando=false sessao=sim perfil=Ana')).toBeTruthy();
+    expect(buscar).toHaveBeenCalledWith('u1');
+  });
+
+  it('falha ao buscar o perfil: perfil null e carregando false', async () => {
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    buscar.mockRejectedValue(new Error('falhou'));
+    await render(
+      <SessaoProvider>
+        <Sonda />
+      </SessaoProvider>,
+    );
+    expect(await screen.findByText('carregando=false sessao=sim perfil=nenhum')).toBeTruthy();
+  });
+
+  it('trocar de usuário nunca expõe o perfil do anterior', async () => {
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    buscar.mockResolvedValueOnce(perfilAna);
+    await render(
+      <SessaoProvider>
+        <Sonda />
+      </SessaoProvider>,
+    );
+    await screen.findByText('carregando=false sessao=sim perfil=Ana');
+
+    let resolver!: (p: unknown) => void;
+    buscar.mockReturnValueOnce(new Promise((r) => (resolver = r)));
+    await act(() => callback('SIGNED_IN', { user: { id: 'u2' } }));
+    expect(screen.getByText('carregando=true sessao=sim perfil=nenhum')).toBeTruthy();
+    await act(async () => resolver({ ...perfilAna, id: 'u2', nome: 'Bruno' }));
+    expect(await screen.findByText('carregando=false sessao=sim perfil=Bruno')).toBeTruthy();
+  });
+
+  it('sair e entrar de novo com o mesmo usuário não reaproveita o perfil antigo', async () => {
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    buscar.mockResolvedValueOnce(perfilAna);
+    await render(
+      <SessaoProvider>
+        <Sonda />
+      </SessaoProvider>,
+    );
+    await screen.findByText('carregando=false sessao=sim perfil=Ana');
+    await act(() => callback('SIGNED_OUT', null));
+    await screen.findByText('carregando=false sessao=nao perfil=nenhum');
+
+    buscar.mockReturnValueOnce(new Promise(() => {}));
+    await act(() => callback('SIGNED_IN', { user: { id: 'u1' } }));
+    expect(screen.getByText('carregando=true sessao=sim perfil=nenhum')).toBeTruthy();
+  });
 });

@@ -1,15 +1,27 @@
 import { Redirect } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { sair } from '@/api/auth';
 import { Botao } from '@/componentes/Botao';
 import { Carregando } from '@/componentes/Carregando';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { cores, espaco } from '@/lib/tema';
+import { useSair } from '@/sessao/useSair';
 import { useSessao } from '@/sessao/useSessao';
 
 export default function Inicio() {
   const { carregando, sessao, perfil, recarregarPerfil } = useSessao();
+  const { aoSair, erroSair, saindo } = useSair();
+  const [tentando, setTentando] = useState(false);
+
+  async function tentarDeNovo() {
+    setTentando(true);
+    try {
+      await recarregarPerfil();
+    } finally {
+      setTentando(false);
+    }
+  }
 
   if (carregando) return <Carregando />;
   if (!sessao) return <Redirect href="/(auth)/entrar" />;
@@ -17,8 +29,14 @@ export default function Inicio() {
     return (
       <View style={estilos.container}>
         <MensagemErro texto="Não foi possível carregar seu perfil." />
-        <Botao titulo="Tentar de novo" onPress={() => void recarregarPerfil()} />
-        <Botao titulo="Sair" variante="secundario" onPress={() => void sair().catch(() => {})} />
+        {erroSair ? <MensagemErro texto={erroSair} /> : null}
+        <Botao titulo="Tentar de novo" onPress={() => void tentarDeNovo()} carregando={tentando} />
+        <Botao
+          titulo="Sair"
+          variante="secundario"
+          onPress={() => void aoSair()}
+          carregando={saindo}
+        />
       </View>
     );
   }

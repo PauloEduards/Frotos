@@ -57,7 +57,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!usuarioId) return;
+    if (!usuarioId) {
+      setPerfilCarregado(null);
+      return;
+    }
     let ativo = true;
     buscarPerfil(usuarioId)
       .then((p) => ativo && setPerfilCarregado({ id: usuarioId, perfil: p }))
