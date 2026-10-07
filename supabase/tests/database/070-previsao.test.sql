@@ -46,17 +46,12 @@ insert into public.odometer_readings (vehicle_id, autor_id, km, origem, capturad
   (:'c1', :'dono', 13000, 'atualizacao', '2026-10-06 15:00+00');
 select is((select proximo_km from public.previsao_itens_interna(:'c1', '2026-10-06')), 20000, '4 proximo_km');
 select is((select km_restante from public.previsao_itens_interna(:'c1', '2026-10-06')), 7000, '4 km_restante');
-select is((select data_prevista from public.previsao_itens_interna(:'c1', '2026-10-06')), '2026-10-29'::date, '4 data_prevista');
+select is((select data_prevista from public.previsao_itens_interna(:'c1', '2026-10-06')), '2026-10-30'::date, '4 data_prevista');
 select is((select status::text from public.previsao_itens_interna(:'c1', '2026-10-06')), 'em_dia', '4 em_dia');
 
 -- 5 limiares de km
 update public.vehicles set km_atual = 19200 where id = :'c1';
 select is((select status::text from public.previsao_itens_interna(:'c1', '2026-10-06')), 'proximo', '5 restante 800 proximo');
--- média 100 km/dia: com 300 km/dia, 250 km restantes cairiam em hoje (data_prevista <= hoje = vencido)
-delete from public.odometer_readings where vehicle_id = :'c1';
-insert into public.odometer_readings (vehicle_id, autor_id, km, origem, capturado_em) values
-  (:'c1', :'dono', 12000, 'atualizacao', '2026-09-26 15:00+00'),
-  (:'c1', :'dono', 13000, 'atualizacao', '2026-10-06 15:00+00');
 update public.vehicles set km_atual = 19750 where id = :'c1';
 select is((select status::text from public.previsao_itens_interna(:'c1', '2026-10-06')), 'urgente', '5 restante 250 urgente');
 update public.vehicles set km_atual = 20000 where id = :'c1';
@@ -96,10 +91,10 @@ update public.vehicle_items set ultimo_km = 10000, ultima_data = '2026-09-01' wh
 select is((select media from public.media_km_dia_interna(:'c1', '2026-10-06')), 0::numeric, '10 média 0');
 select is((select data_prevista from public.previsao_itens_interna(:'c1', '2026-10-06')), '2027-03-01'::date, '10 data por tempo sem erro');
 
--- 11 status do carro (média 100 km/dia)
+-- 11 status do carro (média 300 km/dia)
 delete from public.odometer_readings where vehicle_id = :'c1';
 insert into public.odometer_readings (vehicle_id, autor_id, km, origem, capturado_em) values
-  (:'c1', :'dono', 12000, 'atualizacao', '2026-09-26 15:00+00'),
+  (:'c1', :'dono', 10000, 'atualizacao', '2026-09-26 15:00+00'),
   (:'c1', :'dono', 13000, 'atualizacao', '2026-10-06 15:00+00');
 delete from public.vehicle_items where vehicle_id = :'c1';
 insert into public.vehicle_items (vehicle_id, nome, intervalo_km, intervalo_meses, ultimo_km, ultima_data) values

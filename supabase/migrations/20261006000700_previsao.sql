@@ -60,7 +60,9 @@ as $$
         when i.ultimo_km is null and i.ultima_data is null then null
         else least(
           case when k.proximo_km is not null and m.media > 0
-               then p_hoje + floor((k.proximo_km - v.km_atual) / m.media)::int end,
+               then p_hoje + (case when k.proximo_km - v.km_atual > 0
+                               then ceil((k.proximo_km - v.km_atual) / m.media)
+                               else floor((k.proximo_km - v.km_atual) / m.media) end)::int end,
           case when i.ultima_data is not null and i.intervalo_meses is not null
                then (i.ultima_data + make_interval(months => i.intervalo_meses))::date end
         )
