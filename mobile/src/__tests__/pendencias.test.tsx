@@ -268,6 +268,16 @@ describe('Pendências', () => {
     expect(await screen.findByText('Nenhuma pendência. Tudo em dia!')).toBeOnTheScreen();
   });
 
+  it('foto que não carrega mostra "Sem imagem" e pede um endereço novo', async () => {
+    m.leituras.mockResolvedValue([leitura]);
+    await renderizar();
+    const imagem = await screen.findByTestId('miniatura:f1/v1/painel.jpg');
+    await waitFor(() => expect(m.urls).toHaveBeenCalledTimes(1));
+    await fireEvent(imagem, 'error');
+    await waitFor(() => expect(m.urls).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+  });
+
   it('segue acionável quando as fotos não podem ser assinadas', async () => {
     m.servicos.mockResolvedValue([servico]);
     m.urls.mockRejectedValue(new ErroApp('Falha'));

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { urlsAssinadas } from '@/api/fotos';
 import { minhaFrota } from '@/api/frota';
 import {
   leiturasParaConferir,
@@ -28,6 +27,7 @@ import { formatarData, formatarDataBrt, formatarKm, formatarReais } from '@/lib/
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
+import { useUrlsAssinadas } from '@/lib/useUrlsAssinadas';
 
 const ROTULO_TIPO: Record<TipoOcorrencia, string> = {
   mecanico: 'Barulho/mecânico',
@@ -44,8 +44,18 @@ type Dados = {
   recentes: ServicoRevisao[];
   leituras: LeituraConferir[];
   ocorrencias: OcorrenciaAberta[];
-  urls: Record<string, string>;
 };
+
+type FotosProps = { urls: Record<string, string>; onErroFoto: () => void };
+
+function caminhosDasFotos(d: Dados | undefined): string[] {
+  if (!d) return [];
+  const caminhos: string[] = [];
+  for (const s of [...d.servicos, ...d.recentes]) if (s.nota_foto_path) caminhos.push(s.nota_foto_path);
+  for (const l of d.leituras) caminhos.push(l.foto_painel_path);
+  for (const o of d.ocorrencias) caminhos.push(...o.fotos);
+  return caminhos;
+}
 
 async function carregar(fleetId: string): Promise<Dados> {
   const [servicos, recentes, leituras, ocorrencias] = await Promise.all([
@@ -54,13 +64,7 @@ async function carregar(fleetId: string): Promise<Dados> {
     leiturasParaConferir(fleetId),
     ocorrenciasAbertas(fleetId),
   ]);
-  const caminhos = new Set<string>();
-  for (const s of [...servicos, ...recentes]) if (s.nota_foto_path) caminhos.add(s.nota_foto_path);
-  for (const l of leituras) caminhos.add(l.foto_painel_path);
-  for (const o of ocorrencias) for (const f of o.fotos) caminhos.add(f);
-  // As fotos complementam: se a assinatura falhar, os cartões continuam acionáveis ("Sem imagem").
-  const urls = await urlsAssinadas([...caminhos]).catch((): Record<string, string> => ({}));
-  return { servicos, recentes, leituras, ocorrencias, urls };
+  return { servicos, recentes, leituras, ocorrencias };
 }
 
 export default function Pendencias() {
@@ -71,6 +75,8 @@ export default function Pendencias() {
     queryFn: () => carregar(fleetId as string),
     enabled: fleetId !== undefined,
   });
+  // As fotos complementam: se a assinatura falhar, os cartões continuam acionáveis ("Sem imagem").
+  const fotos = useUrlsAssinadas(caminhosDasFotos(pendencias.data));
   const [atualizando, setAtualizando] = useState(false);
 
   useRefreshOnFocus(() => {
@@ -121,6 +127,8 @@ export default function Pendencias() {
     );
   }
 
+  const fotosProps: FotosProps = { urls: fotos.urls, onErroFoto: () => void fotos.renovar() };
+
   const vazio =
     dados.servicos.length === 0 &&
     dados.recentes.length === 0 &&
@@ -131,6 +139,8 @@ export default function Pendencias() {
     <ScrollView
       style={estilos.fundo}
       contentContainerStyle={estilos.conteudo}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => void atualizar()} />}
     >
       {erro ? (
@@ -145,7 +155,7 @@ export default function Pendencias() {
         <View style={estilos.bloco}>
           <Text style={estilos.secao}>Serviços para aprovar</Text>
           {dados.servicos.map((s) => (
-            <CartaoServico key={s.id} servico={s} urls={dados.urls} modo="revisar" />
+            <CartaoServico key={s.id} servico={s} {...fotosProps} modo="revisar" />
           ))}
         </View>
       ) : null}
@@ -154,7 +164,7 @@ export default function Pendencias() {
         <View style={estilos.bloco}>
           <Text style={estilos.secao}>Ocorrências</Text>
           {dados.ocorrencias.map((o) => (
-            <CartaoOcorrencia key={o.id} ocorrencia={o} urls={dados.urls} />
+            <CartaoOcorrencia key={o.id} ocorrencia={o} {...fotosProps} />
           ))}
         </View>
       ) : null}
@@ -163,7 +173,7 @@ export default function Pendencias() {
         <View style={estilos.bloco}>
           <Text style={estilos.secao}>Leituras de km para conferir</Text>
           {dados.leituras.map((l) => (
-            <CartaoLeitura key={l.id} leitura={l} urls={dados.urls} />
+            <CartaoLeitura key={l.id} leitura={l} {...fotosProps} />
           ))}
         </View>
       ) : null}
@@ -172,7 +182,7 @@ export default function Pendencias() {
         <View style={estilos.bloco}>
           <Text style={estilos.secao}>Registrados por motoristas confiáveis</Text>
           {dados.recentes.map((s) => (
-            <CartaoServico key={s.id} servico={s} urls={dados.urls} modo="contestar" />
+            <CartaoServico key={s.id} servico={s} {...fotosProps} modo="contestar" />
           ))}
         </View>
       ) : null}
@@ -190,12 +200,12 @@ type Decisao = 'aprovar' | 'recusar' | 'contestar';
 function CartaoServico({
   servico,
   urls,
+  onErroFoto,
   modo,
 }: {
   servico: ServicoRevisao;
-  urls: Record<string, string>;
   modo: 'revisar' | 'contestar';
-}) {
+} & FotosProps) {
   const invalidar = useInvalidarPendencias();
   const [erro, setErro] = useState<string | null>(null);
   const [motivando, setMotivando] = useState(false);
@@ -233,7 +243,12 @@ function CartaoServico({
         {formatarKm(servico.km)}
       </Text>
       {servico.nota_foto_path ? (
-        <FotoRemota path={servico.nota_foto_path} urls={urls} descricao={`Nota do serviço ${servico.placa}`} />
+        <FotoRemota
+          path={servico.nota_foto_path}
+          urls={urls}
+          descricao={`Nota do serviço ${servico.placa}`}
+          onErro={onErroFoto}
+        />
       ) : (
         <Text style={estilos.detalhe}>Sem foto da nota</Text>
       )}
@@ -267,7 +282,7 @@ function CartaoServico({
   );
 }
 
-function CartaoLeitura({ leitura, urls }: { leitura: LeituraConferir; urls: Record<string, string> }) {
+function CartaoLeitura({ leitura, urls, onErroFoto }: { leitura: LeituraConferir } & FotosProps) {
   const s = leitura.salto;
   const resumo = s
     ? `${s.km >= 0 ? '+' : '-'}${formatarKm(Math.abs(s.km))} em ${s.dias} ${s.dias === 1 ? 'dia' : 'dias'}`
@@ -279,18 +294,17 @@ function CartaoLeitura({ leitura, urls }: { leitura: LeituraConferir; urls: Reco
       </Text>
       <Text style={estilos.alerta}>{resumo}</Text>
       <Text style={estilos.detalhe}>{`Painel marcando ${formatarKm(leitura.km)}`}</Text>
-      <FotoRemota path={leitura.foto_painel_path} urls={urls} descricao={`Foto do painel ${leitura.placa}`} />
+      <FotoRemota
+        path={leitura.foto_painel_path}
+        urls={urls}
+        descricao={`Foto do painel ${leitura.placa}`}
+        onErro={onErroFoto}
+      />
     </View>
   );
 }
 
-function CartaoOcorrencia({
-  ocorrencia,
-  urls,
-}: {
-  ocorrencia: OcorrenciaAberta;
-  urls: Record<string, string>;
-}) {
+function CartaoOcorrencia({ ocorrencia, urls, onErroFoto }: { ocorrencia: OcorrenciaAberta } & FotosProps) {
   const invalidar = useInvalidarPendencias();
   const [erro, setErro] = useState<string | null>(null);
   const resolver = useMutation({
@@ -310,7 +324,13 @@ function CartaoOcorrencia({
       {ocorrencia.fotos.length > 0 ? (
         <View style={estilos.fotos}>
           {ocorrencia.fotos.map((f, i) => (
-            <FotoRemota key={f} path={f} urls={urls} descricao={`Foto ${i + 1} da ocorrência ${ocorrencia.placa}`} />
+            <FotoRemota
+              key={f}
+              path={f}
+              urls={urls}
+              descricao={`Foto ${i + 1} da ocorrência ${ocorrencia.placa}`}
+              onErro={onErroFoto}
+            />
           ))}
         </View>
       ) : null}

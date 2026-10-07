@@ -14,6 +14,7 @@ import {
 import {
   adicionarItem,
   atualizarItem,
+  buscarVeiculo,
   definirHistoricoInicial,
   listarItens,
   sugestaoCusto,
@@ -30,8 +31,10 @@ import {
   formatarData,
   formatarKm,
   formatarReais,
+  hojeBrt,
   lerReais,
   mascararData,
+  valorMuitoAlto,
 } from '@/lib/formatos';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { corStatus } from '@/lib/status';
@@ -90,6 +93,7 @@ function lerPlano(c: CamposPlano): { plano: PlanoItem | null; erros: ErrosPlano 
   if (c.custo.trim() !== '') {
     const lido = lerReais(c.custo);
     if (lido === null) erros.custo = 'Custo inválido.';
+    else if (valorMuitoAlto(lido)) erros.custo = 'Valor muito alto.';
     else custo = lido;
   }
 
@@ -133,6 +137,8 @@ function CamposDoPlano({
 export default function ItensDoCarro() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const itens = useQuery({ queryKey: ['itens', id], queryFn: () => listarItens(id) });
+  // Só para validar o km da última troca; se não carregar, essa checagem fica com o backend.
+  const veiculo = useQuery({ queryKey: ['veiculos', 'detalhe', id], queryFn: () => buscarVeiculo(id) });
   const [aberto, setAberto] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -200,6 +206,7 @@ export default function ItensDoCarro() {
                 <EditorItem
                   key={item.id}
                   item={item}
+                  kmAtual={veiculo.data?.km_atual ?? null}
                   onFechar={() => setAberto(null)}
                   onAviso={setAviso}
                 />
@@ -219,10 +226,12 @@ export default function ItensDoCarro() {
 
 function EditorItem({
   item,
+  kmAtual,
   onFechar,
   onAviso,
 }: {
   item: ItemVeiculo;
+  kmAtual: number | null;
   onFechar: () => void;
   onAviso: (texto: string | null) => void;
 }) {
@@ -279,11 +288,15 @@ function EditorItem({
 
     const km = lerInteiro(kmInicial);
     if (!km.valido) novosErros.kmInicial = 'Km inválido.';
+    else if (km.valor !== null && kmAtual !== null && km.valor > kmAtual) {
+      novosErros.kmInicial = `O km não pode ser maior que o km atual do carro (${formatarKm(kmAtual)}).`;
+    }
 
     let data: string | null = null;
     if (dataInicial.trim() !== '') {
       data = dataBrParaIso(dataInicial);
       if (data === null) novosErros.dataInicial = 'Data inválida.';
+      else if (data > hojeBrt()) novosErros.dataInicial = 'A data não pode ser no futuro.';
     }
 
     const lido = lerPlano(plano);
@@ -296,6 +309,7 @@ function EditorItem({
   if (pendente) {
     return (
       <View style={estilos.editor}>
+        <Text style={estilos.aviso}>Histórico salvo.</Text>
         <Text style={estilos.pergunta}>Aplicar esta mudança a:</Text>
         {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
         <Botao
@@ -315,11 +329,12 @@ function EditorItem({
           }}
         />
         <Botao
-          titulo="Cancelar"
+          titulo="Manter o plano atual"
           variante="secundario"
+          desabilitado={aplicar.isPending}
           onPress={() => {
-            setErroGeral(null);
-            setPendente(null);
+            onAviso('Histórico salvo.');
+            onFechar();
           }}
         />
       </View>

@@ -93,3 +93,10 @@ export function formatarDataHoraBrt(instante: string | null): string {
   const brt = new Date(t + BRASILIA_MS).toISOString();
   return `${formatarData(brt)} ${brt.slice(11, 16)}`;
 }
+
+/** Maior valor em reais aceito pelo banco (numeric(10,2)): R$ 99.999.999,99. */
+export const VALOR_MAXIMO = 99999999.99;
+
+export function valorMuitoAlto(n: number): boolean {
+  return n > VALOR_MAXIMO;
+}

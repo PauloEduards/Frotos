@@ -166,6 +166,62 @@ describe('registrar serviço', () => {
     expect(registrarMock).not.toHaveBeenCalled();
   });
 
+  it('valor acima de R$ 99.999.999,99 é recusado', async () => {
+    await renderizar();
+    await preencher('45300', '100.000.000,00');
+    await fireEvent.press(screen.getByText('Registrar'));
+    expect(await screen.findByText('Valor muito alto.')).toBeTruthy();
+    expect(registrarMock).not.toHaveBeenCalled();
+  });
+
+  it('sem pedidos abertos não pergunta se o serviço é de um pedido', async () => {
+    await renderizar();
+    expect(screen.queryByText('Este serviço é de um pedido?')).toBeNull();
+  });
+
+  describe('carro com pedido aberto', () => {
+    const pedidoAberto = { id: 'p9', itens: ['i2'], prazo: '2026-10-20', observacao: null, driver_id: 'm1' };
+
+    async function renderizarComPergunta() {
+      pedidosMock.mockResolvedValue([pedidoAberto]);
+      client = criarClienteDeTeste();
+      await renderComCliente(<RegistrarServico />, client);
+      await screen.findByText('Este serviço é de um pedido?');
+    }
+
+    it('pergunta mostrando prazo e itens de cada pedido', async () => {
+      await renderizarComPergunta();
+      expect(screen.getByText('Prazo: 20/10/2026')).toBeTruthy();
+      expect(screen.getByText('Pneus')).toBeTruthy();
+      expect(screen.getByText('Não é de um pedido')).toBeTruthy();
+      expect(screen.queryByText('Registrar')).toBeNull();
+    });
+
+    it('escolher o pedido marca os itens dele e envia o requestId', async () => {
+      await renderizarComPergunta();
+      await fireEvent.press(screen.getByText('Prazo: 20/10/2026'));
+      expect(await screen.findByText('O que foi feito?')).toBeTruthy();
+      expect(marcado('Pneus')).toBe(true);
+      expect(marcado('Óleo do motor')).toBe(false);
+      await preencher();
+      await fireEvent.press(screen.getByText('Registrar'));
+      await waitFor(() => expect(registrarMock).toHaveBeenCalled());
+      expect(registrarMock.mock.calls[0][0]).toMatchObject({ itens: [{ vehicle_item_id: 'i2' }], requestId: 'p9' });
+    });
+
+    it('"Não é de um pedido" segue sem requestId e com a pré-marcação normal', async () => {
+      await renderizarComPergunta();
+      await fireEvent.press(screen.getByText('Não é de um pedido'));
+      expect(await screen.findByText('O que foi feito?')).toBeTruthy();
+      expect(marcado('Óleo do motor')).toBe(true);
+      expect(marcado('Pneus')).toBe(false);
+      await preencher();
+      await fireEvent.press(screen.getByText('Registrar'));
+      await waitFor(() => expect(registrarMock).toHaveBeenCalled());
+      expect(registrarMock.mock.calls[0][0].requestId).toBeUndefined();
+    });
+  });
+
   it('erro de negócio mostra o DETAIL e mantém o formulário preenchido', async () => {
     registrarMock.mockRejectedValue({
       code: 'P0001',

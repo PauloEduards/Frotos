@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { cores } from '@/lib/tema';
@@ -9,13 +9,26 @@ type Props = {
   urls: Record<string, string>;
   /** Descrição para leitores de tela; também identifica a foto nos testes. */
   descricao?: string;
+  /** Chamado quando a imagem não carrega (endereço vencido, por exemplo), para pedir um endereço novo. */
+  onErro?: () => void;
 };
 
-export function FotoRemota({ path, urls, descricao = 'Foto' }: Props) {
+export function FotoRemota({ path, urls, descricao = 'Foto', onErro }: Props) {
   const [aberta, setAberta] = useState(false);
+  const [urlComFalha, setUrlComFalha] = useState<string | null>(null);
+  // Pede endereço novo só uma vez: se o novo também falhar, fica em "Sem imagem" (sem repetir sem parar).
+  const pediuNovo = useRef(false);
   const url = urls[path];
 
-  if (!url) {
+  function aoFalhar() {
+    setUrlComFalha(url);
+    if (!pediuNovo.current) {
+      pediuNovo.current = true;
+      onErro?.();
+    }
+  }
+
+  if (!url || url === urlComFalha) {
     return (
       <View
         accessibilityLabel={`${descricao} (indisponível)`}
@@ -29,7 +42,7 @@ export function FotoRemota({ path, urls, descricao = 'Foto' }: Props) {
   return (
     <>
       <Pressable accessibilityRole="imagebutton" accessibilityLabel={descricao} onPress={() => setAberta(true)}>
-        <Image source={{ uri: url }} style={estilos.miniatura} />
+        <Image testID={`miniatura:${path}`} source={{ uri: url }} style={estilos.miniatura} onError={aoFalhar} />
       </Pressable>
       <Modal visible={aberta} transparent animationType="fade" onRequestClose={() => setAberta(false)}>
         <View style={estilos.fundo}>

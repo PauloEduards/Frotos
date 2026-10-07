@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { pedidosAbertos, registrarServico, type ItemServico } from '@/api/manutencao';
 import { listarItens, previsaoItens } from '@/api/veiculos';
@@ -11,7 +11,14 @@ import { Carregando } from '@/componentes/Carregando';
 import { ChecklistItens, LinhaMarcavel } from '@/componentes/ChecklistItens';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
-import { dataBrParaIso, formatarData, hojeBrt, lerReais, mascararData } from '@/lib/formatos';
+import {
+  dataBrParaIso,
+  formatarData,
+  hojeBrt,
+  lerReais,
+  mascararData,
+  valorMuitoAlto,
+} from '@/lib/formatos';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 
@@ -26,11 +33,11 @@ export default function RegistrarServico() {
 
   const itensQ = useQuery({ queryKey: ['itens', id], queryFn: () => listarItens(id) });
   const previsaoQ = useQuery({ queryKey: ['veiculos', 'previsao', id], queryFn: () => previsaoItens(id) });
-  const pedidosQ = useQuery({
-    queryKey: ['veiculos', 'pedidos', id],
-    queryFn: () => pedidosAbertos(id),
-    enabled: !!pedido,
-  });
+  // Sempre consulta os pedidos abertos: sem pedido na rota, pergunta se o serviço é de um deles.
+  const pedidosQ = useQuery({ queryKey: ['veiculos', 'pedidos', id], queryFn: () => pedidosAbertos(id) });
+
+  // undefined: ainda não respondeu; null: "Não é de um pedido"; string: o pedido escolhido.
+  const [escolha, setEscolha] = useState<string | null | undefined>(undefined);
 
   const [marcados, setMarcados] = useState<Set<string> | null>(null);
   const [outro, setOutro] = useState(false);
@@ -51,8 +58,9 @@ export default function RegistrarServico() {
     onError: (e) => setErroGeral(mensagemErro(e)),
   });
 
+  // Sem pedido na rota, falhar ao listar os pedidos não impede registrar: só não pergunta.
   const consultas = pedido ? [itensQ, previsaoQ, pedidosQ] : [itensQ, previsaoQ];
-  if (consultas.some((c) => c.isPending && !c.isError)) return <Carregando />;
+  if ([itensQ, previsaoQ, pedidosQ].some((c) => c.isPending && !c.isError)) return <Carregando />;
   const falha = consultas.find((c) => c.isError);
   if (falha) {
     return (
@@ -68,9 +76,34 @@ export default function RegistrarServico() {
     );
   }
 
+  const abertos = pedidosQ.data ?? [];
+  if (!pedido && escolha === undefined && abertos.length > 0) {
+    const nomes = Object.fromEntries((itensQ.data ?? []).map((i) => [i.id, i.nome]));
+    return (
+      <ScrollView style={estilos.fundo} contentContainerStyle={estilos.conteudo}>
+        <Text accessibilityRole="header" style={estilos.titulo}>
+          Este serviço é de um pedido?
+        </Text>
+        {abertos.map((p) => (
+          <Pressable
+            key={p.id}
+            accessibilityRole="button"
+            onPress={() => setEscolha(p.id)}
+            style={({ pressed }) => [estilos.opcao, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={estilos.prazo}>{`Prazo: ${formatarData(p.prazo)}`}</Text>
+            <Text style={estilos.apoio}>{p.itens.map((i) => nomes[i] ?? 'Item').join(', ')}</Text>
+          </Pressable>
+        ))}
+        <Botao titulo="Não é de um pedido" variante="secundario" onPress={() => setEscolha(null)} />
+      </ScrollView>
+    );
+  }
+
+  const pedidoId = pedido || escolha || undefined;
   const itens = (itensQ.data ?? []).filter((i) => i.ativo);
-  const doPedido = pedido ? pedidosQ.data?.find((p) => p.id === pedido) : undefined;
-  const pedidoIndisponivel = !!pedido && !doPedido;
+  const doPedido = pedidoId ? abertos.find((p) => p.id === pedidoId) : undefined;
+  const pedidoIndisponivel = !!pedidoId && !doPedido;
   const padrao = new Set(
     doPedido
       ? doPedido.itens
@@ -102,6 +135,7 @@ export default function RegistrarServico() {
     if (!dataIso) e.data = 'Informe uma data válida.';
     const valorNum = lerReais(valor);
     if (valorNum === null) e.valor = 'Informe o valor total.';
+    else if (valorMuitoAlto(valorNum)) e.valor = 'Valor muito alto.';
 
     setErros(e);
     if (Object.keys(e).length > 0 || kmNum === null || !dataIso || valorNum === null) return;
@@ -115,46 +149,44 @@ export default function RegistrarServico() {
       data: dataIso,
       valorTotal: valorNum,
       oficina: oficina.trim() || undefined,
-      requestId: pedido || undefined,
+      requestId: pedidoId,
     });
   }
 
   return (
-    <ScrollView
-      style={estilos.fundo}
-      contentContainerStyle={estilos.conteudo}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text accessibilityRole="header" style={estilos.titulo}>
-        O que foi feito?
-      </Text>
-      <ChecklistItens itens={itens} marcados={selecionados} onAlternar={alternar} />
-      <LinhaMarcavel rotulo="Outro serviço" marcado={outro} onPress={() => setOutro(!outro)} />
-      {outro ? (
-        <Campo rotulo="Nome do serviço" valor={nomeOutro} onChange={setNomeOutro} erro={erros.outro} />
-      ) : null}
-      {erros.itens ? <MensagemErro texto={erros.itens} /> : null}
+    <KeyboardAvoidingView style={estilos.fundo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+        <Text accessibilityRole="header" style={estilos.titulo}>
+          O que foi feito?
+        </Text>
+        <ChecklistItens itens={itens} marcados={selecionados} onAlternar={alternar} />
+        <LinhaMarcavel rotulo="Outro serviço" marcado={outro} onPress={() => setOutro(!outro)} />
+        {outro ? (
+          <Campo rotulo="Nome do serviço" valor={nomeOutro} onChange={setNomeOutro} erro={erros.outro} />
+        ) : null}
+        {erros.itens ? <MensagemErro texto={erros.itens} /> : null}
 
-      <Campo rotulo="Km do painel" valor={km} onChange={setKm} tipo="numero" erro={erros.km} />
-      <Campo
-        rotulo="Data"
-        valor={data}
-        onChange={(t) => setData(mascararData(t))}
-        tipo="numero"
-        erro={erros.data}
-      />
-      <Campo rotulo="Valor total" valor={valor} onChange={setValor} tipo="numero" erro={erros.valor} />
-      <Campo rotulo="Oficina (opcional)" valor={oficina} onChange={setOficina} />
+        <Campo rotulo="Km do painel" valor={km} onChange={setKm} tipo="numero" erro={erros.km} />
+        <Campo
+          rotulo="Data"
+          valor={data}
+          onChange={(t) => setData(mascararData(t))}
+          tipo="numero"
+          erro={erros.data}
+        />
+        <Campo rotulo="Valor total" valor={valor} onChange={setValor} tipo="numero" erro={erros.valor} />
+        <Campo rotulo="Oficina (opcional)" valor={oficina} onChange={setOficina} />
 
-      {pedidoIndisponivel ? <MensagemErro texto="Este pedido não está mais aberto." /> : null}
-      {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
-      <Botao
-        titulo="Registrar"
-        onPress={enviar}
-        desabilitado={pedidoIndisponivel}
-        carregando={salvar.isPending}
-      />
-    </ScrollView>
+        {pedidoIndisponivel ? <MensagemErro texto="Este pedido não está mais aberto." /> : null}
+        {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
+        <Botao
+          titulo="Registrar"
+          onPress={enviar}
+          desabilitado={pedidoIndisponivel}
+          carregando={salvar.isPending}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -162,4 +194,15 @@ const estilos = StyleSheet.create({
   fundo: { flex: 1, backgroundColor: cores.fundo },
   conteudo: { padding: espaco.xl, gap: espaco.lg },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.texto },
+  opcao: {
+    minHeight: 48,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    padding: espaco.lg,
+    gap: espaco.xs,
+  },
+  prazo: { fontSize: 16, fontWeight: '600', color: cores.texto },
+  apoio: { fontSize: 15, color: cores.textoSecundario },
 });

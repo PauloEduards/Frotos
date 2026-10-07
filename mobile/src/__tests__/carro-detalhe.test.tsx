@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { urlsAssinadas } from '@/api/fotos';
@@ -135,6 +135,16 @@ describe('cabeçalho', () => {
     });
     await renderizar();
     expect(await screen.findByText('Média estimada: 300 km/dia')).toBeTruthy();
+  });
+
+  it('falha no status do cabeçalho permite tentar de novo', async () => {
+    statusMock.mockRejectedValueOnce({ message: 'Network request failed' });
+    await renderizar();
+    expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
+    expect(screen.queryByText('Urgente')).toBeNull();
+    await fireEvent.press(screen.getByText('Tentar de novo'));
+    expect(await screen.findByText('Urgente')).toBeTruthy();
+    expect(screen.queryByText('Sem conexão com a internet. Tente de novo.')).toBeNull();
   });
 
   it('falha ao carregar o carro mostra o erro e permite tentar de novo', async () => {
@@ -281,6 +291,33 @@ describe('Leituras de km', () => {
     expect(await screen.findByText('Fechar')).toBeTruthy();
     await fireEvent.press(screen.getByText('Fechar'));
     await waitFor(() => expect(screen.queryByText('Fechar')).toBeNull());
+  });
+
+  it('puxar para atualizar renova os endereços das fotos', async () => {
+    leiturasMock.mockResolvedValue(leituras);
+    urlsMock.mockResolvedValue({ 'f1/v1/painel.jpg': 'https://exemplo.test/painel.jpg' });
+    await renderizar();
+    await screen.findByLabelText('Foto do painel');
+    await waitFor(() => expect(urlsMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await screen.getByTestId('detalhe-carro').props.refreshControl.props.onRefresh();
+    });
+    await waitFor(() => expect(urlsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('foto que não carrega mostra "Sem imagem" e pede um endereço novo', async () => {
+    leiturasMock.mockResolvedValue(leituras);
+    urlsMock.mockResolvedValue({ 'f1/v1/painel.jpg': 'https://exemplo.test/velho.jpg' });
+    await renderizar();
+    const imagem = await screen.findByTestId('miniatura:f1/v1/painel.jpg');
+    urlsMock.mockResolvedValue({ 'f1/v1/painel.jpg': 'https://exemplo.test/novo.jpg' });
+    await fireEvent(imagem, 'error');
+    await waitFor(() => expect(urlsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByTestId('miniatura:f1/v1/painel.jpg').props.source).toEqual({
+        uri: 'https://exemplo.test/novo.jpg',
+      }),
+    );
   });
 
   it('sem leituras mostra a lista vazia', async () => {
@@ -446,6 +483,16 @@ describe('Pedidos abertos', () => {
   it('sem pedidos mostra a lista vazia', async () => {
     await renderizar();
     expect(await screen.findByText('Nenhum pedido aberto.')).toBeTruthy();
+  });
+
+  it('Registrar serviço do pedido abre o serviço já ligado ao pedido', async () => {
+    pedidosMock.mockResolvedValue([pedido]);
+    await renderizar();
+    await screen.findByText('Prazo: 20/10/2026');
+    const botoes = screen.getAllByText('Registrar serviço');
+    expect(botoes).toHaveLength(2);
+    await fireEvent.press(botoes[1]);
+    expect(mockPush).toHaveBeenLastCalledWith('/carros/v1/servico?pedido=p1');
   });
 
   it('Cancelar pede confirmação e cancela o pedido', async () => {

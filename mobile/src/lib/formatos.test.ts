@@ -7,6 +7,8 @@ import {
   formatarKm,
   formatarReais,
   lerReais,
+  VALOR_MAXIMO,
+  valorMuitoAlto,
   mascararData,
   normalizarPlaca,
 } from './formatos';
@@ -78,6 +80,15 @@ describe('dataBrParaIso', () => {
       expect(dataBrParaIso(texto)).toBeNull();
     },
   );
+});
+
+describe('valorMuitoAlto', () => {
+  it('aceita até 99.999.999,99 e recusa acima disso', () => {
+    expect(VALOR_MAXIMO).toBe(99999999.99);
+    expect(valorMuitoAlto(lerReais('99.999.999,99') as number)).toBe(false);
+    expect(valorMuitoAlto(lerReais('100.000.000,00') as number)).toBe(true);
+    expect(valorMuitoAlto(0)).toBe(false);
+  });
 });
 
 describe('lerReais', () => {

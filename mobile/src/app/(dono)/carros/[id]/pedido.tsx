@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { criarPedido } from '@/api/manutencao';
 import { buscarVeiculo, listarItens, previsaoItens, resumoFrota } from '@/api/veiculos';
@@ -98,42 +98,40 @@ export default function PedidoManutencao() {
   }
 
   return (
-    <ScrollView
-      style={estilos.fundo}
-      contentContainerStyle={estilos.conteudo}
-      keyboardShouldPersistTaps="handled"
-    >
-      {motorista ? (
-        <Text style={estilos.apoio}>{`Motorista: ${motorista}`}</Text>
-      ) : (
-        <Text style={estilos.aviso}>
-          Este carro está sem motorista. O pedido vai para quem estiver com ele.
+    <KeyboardAvoidingView style={estilos.fundo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+        {motorista ? (
+          <Text style={estilos.apoio}>{`Motorista: ${motorista}`}</Text>
+        ) : (
+          <Text style={estilos.aviso}>
+            Este carro está sem motorista. O pedido vai para quem estiver com ele.
+          </Text>
+        )}
+
+        <Text accessibilityRole="header" style={estilos.titulo}>
+          O que precisa ser feito?
         </Text>
-      )}
+        <ChecklistItens itens={itens} marcados={selecionados} onAlternar={alternar} />
+        {erros.itens ? <MensagemErro texto={erros.itens} /> : null}
 
-      <Text accessibilityRole="header" style={estilos.titulo}>
-        O que precisa ser feito?
-      </Text>
-      <ChecklistItens itens={itens} marcados={selecionados} onAlternar={alternar} />
-      {erros.itens ? <MensagemErro texto={erros.itens} /> : null}
+        <Campo
+          rotulo="Prazo"
+          valor={prazo}
+          onChange={(t) => setPrazo(mascararData(t))}
+          tipo="numero"
+          erro={erros.prazo}
+        />
+        <Campo rotulo="Observação (opcional)" valor={observacao} onChange={setObservacao} />
 
-      <Campo
-        rotulo="Prazo"
-        valor={prazo}
-        onChange={(t) => setPrazo(mascararData(t))}
-        tipo="numero"
-        erro={erros.prazo}
-      />
-      <Campo rotulo="Observação (opcional)" valor={observacao} onChange={setObservacao} />
-
-      {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
-      <Botao
-        titulo="Enviar pedido"
-        onPress={enviar}
-        desabilitado={!motorista}
-        carregando={enviarPedido.isPending}
-      />
-    </ScrollView>
+        {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
+        <Botao
+          titulo="Enviar pedido"
+          onPress={enviar}
+          desabilitado={!motorista}
+          carregando={enviarPedido.isPending}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

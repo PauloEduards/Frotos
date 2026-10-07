@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 
-import { urlsAssinadas } from '@/api/fotos';
 import { cancelarPedido, pedidosAbertos, type PedidoAberto } from '@/api/manutencao';
 import {
   atualizarVeiculo,
@@ -43,6 +42,7 @@ import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { prioridadeStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
 import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
+import { useUrlsAssinadas } from '@/lib/useUrlsAssinadas';
 
 const ROTULO_ORIGEM: Record<OrigemKm, string> = {
   retirada: 'Retirada',
@@ -75,8 +75,6 @@ const ROTULO_POSICAO: Record<string, string> = {
 };
 
 const ORDEM_POSICAO = ['frente', 'traseira', 'lateral_esq', 'lateral_dir', 'extra'];
-
-const MEIA_HORA = 30 * 60 * 1000;
 
 export default function DetalheCarro() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -154,15 +152,9 @@ export default function DetalheCarro() {
   const caminhos = [
     ...(leituras.data ?? []).flatMap((l) => (l.foto_painel_path ? [l.foto_painel_path] : [])),
     ...(vinculosQ.data ?? []).flatMap((v) => v.fotos.map((f) => f.path)),
-  ].sort();
-  const fotos = useQuery({
-    queryKey: ['veiculos', 'fotos', id, caminhos.join('|')],
-    queryFn: () => urlsAssinadas(caminhos),
-    enabled: caminhos.length > 0 && !leituras.isPending && !vinculosQ.isPending,
-    staleTime: MEIA_HORA,
-    placeholderData: (anterior) => anterior,
-  });
-  const urls = fotos.data ?? {};
+  ];
+  const fotos = useUrlsAssinadas(caminhos, !leituras.isPending && !vinculosQ.isPending);
+  const urls = fotos.urls;
 
   function recarregar() {
     return Promise.all([
@@ -179,7 +171,8 @@ export default function DetalheCarro() {
   async function atualizar() {
     setAtualizando(true);
     try {
-      await recarregar();
+      // Puxar para atualizar também renova os endereços das fotos.
+      await Promise.all([recarregar(), fotos.renovar()]);
     } finally {
       setAtualizando(false);
     }
@@ -209,6 +202,8 @@ export default function DetalheCarro() {
       testID="detalhe-carro"
       style={estilos.fundo}
       contentContainerStyle={estilos.conteudo}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => void atualizar()} />}
     >
       <View style={estilos.cabecalho}>
@@ -223,7 +218,12 @@ export default function DetalheCarro() {
             {resumo.estimada ? `Média estimada: ${media}` : `Média: ${media}`}
           </Text>
         ) : null}
-        {status.isError ? <MensagemErro texto={mensagemErro(status.error)} /> : null}
+        {status.isError ? (
+          <>
+            <MensagemErro texto={mensagemErro(status.error)} />
+            <Botao titulo="Tentar de novo" variante="secundario" onPress={() => void status.refetch()} />
+          </>
+        ) : null}
       </View>
 
       <Botao titulo="Plano de manutenção" variante="secundario" onPress={() => router.push(`/carros/${id}/itens`)} />
@@ -241,6 +241,7 @@ export default function DetalheCarro() {
               key={p.id}
               pedido={p}
               nomes={nomesDosItens(previsao.data)}
+              onRegistrar={() => router.push(`/carros/${id}/servico?pedido=${p.id}`)}
               onCancelar={() => pedirCancelamento(p.id)}
             />
           )),
@@ -262,7 +263,9 @@ export default function DetalheCarro() {
         titulo="Leituras de km"
         consulta={leituras}
         vazio="Nenhuma leitura de km registrada."
-        renderizar={(lista) => lista.map((l) => <LinhaLeitura key={l.id} leitura={l} urls={urls} />)}
+        renderizar={(lista) =>
+          lista.map((l) => <LinhaLeitura key={l.id} leitura={l} urls={urls} onErroFoto={fotos.renovar} />)
+        }
       />
 
       <Secao
@@ -276,7 +279,9 @@ export default function DetalheCarro() {
         titulo="Retiradas e devoluções"
         consulta={vinculosQ}
         vazio="Nenhuma retirada ou devolução registrada."
-        renderizar={(lista) => lista.map((a) => <BlocoVinculo key={a.id} vinculo={a} urls={urls} />)}
+        renderizar={(lista) =>
+          lista.map((a) => <BlocoVinculo key={a.id} vinculo={a} urls={urls} onErroFoto={fotos.renovar} />)
+        }
       />
 
       <Botao
@@ -327,10 +332,12 @@ function nomesDosItens(previsao: PrevisaoItem[] | undefined): Record<string, str
 function LinhaPedido({
   pedido,
   nomes,
+  onRegistrar,
   onCancelar,
 }: {
   pedido: PedidoAberto;
   nomes: Record<string, string>;
+  onRegistrar: () => void;
   onCancelar: () => void;
 }) {
   return (
@@ -338,6 +345,7 @@ function LinhaPedido({
       <Text style={estilos.nomeItem}>{`Prazo: ${formatarData(pedido.prazo)}`}</Text>
       <Text style={estilos.apoio}>{pedido.itens.map((i) => nomes[i] ?? 'Item').join(', ')}</Text>
       {pedido.observacao ? <Text style={estilos.apoio}>{pedido.observacao}</Text> : null}
+      <Botao titulo="Registrar serviço" onPress={onRegistrar} />
       <Botao titulo="Cancelar" variante="secundario" onPress={onCancelar} />
     </View>
   );
@@ -408,7 +416,9 @@ function LinhaPrevisao({ item }: { item: PrevisaoItem }) {
   );
 }
 
-function LinhaLeitura({ leitura, urls }: { leitura: LeituraKm; urls: Record<string, string> }) {
+type FotosProps = { urls: Record<string, string>; onErroFoto: () => void };
+
+function LinhaLeitura({ leitura, urls, onErroFoto }: { leitura: LeituraKm } & FotosProps) {
   const texto = `${formatarKm(leitura.km)} · ${formatarDataBrt(leitura.capturado_em)} · ${ROTULO_ORIGEM[leitura.origem]}`;
   return (
     <View style={estilos.linha}>
@@ -421,7 +431,7 @@ function LinhaLeitura({ leitura, urls }: { leitura: LeituraKm; urls: Record<stri
         ) : null}
       </View>
       {leitura.foto_painel_path ? (
-        <FotoRemota path={leitura.foto_painel_path} urls={urls} descricao="Foto do painel" />
+        <FotoRemota path={leitura.foto_painel_path} urls={urls} descricao="Foto do painel" onErro={onErroFoto} />
       ) : null}
     </View>
   );
@@ -442,7 +452,7 @@ function LinhaServico({ servico }: { servico: Servico }) {
   );
 }
 
-function BlocoVinculo({ vinculo, urls }: { vinculo: Vinculo; urls: Record<string, string> }) {
+function BlocoVinculo({ vinculo, urls, onErroFoto }: { vinculo: Vinculo } & FotosProps) {
   const situacao =
     vinculo.status === 'ativo' ? 'Em uso' : vinculo.status === 'aguardando_fotos' ? 'Aguardando fotos da retirada' : null;
   return (
@@ -454,13 +464,13 @@ function BlocoVinculo({ vinculo, urls }: { vinculo: Vinculo; urls: Record<string
       <Text style={estilos.apoio}>
         {`Retirada: ${formatarDataBrt(vinculo.inicio_em)} · ${formatarKm(vinculo.km_inicio)}`}
       </Text>
-      <FotosDoMomento vinculo={vinculo} momento="retirada" urls={urls} />
+      <FotosDoMomento vinculo={vinculo} momento="retirada" urls={urls} onErroFoto={onErroFoto} />
       {vinculo.fim_em ? (
         <>
           <Text style={estilos.apoio}>
             {`Devolução: ${formatarDataBrt(vinculo.fim_em)} · ${formatarKm(vinculo.km_fim)}`}
           </Text>
-          <FotosDoMomento vinculo={vinculo} momento="devolucao" urls={urls} />
+          <FotosDoMomento vinculo={vinculo} momento="devolucao" urls={urls} onErroFoto={onErroFoto} />
         </>
       ) : null}
     </View>
@@ -471,11 +481,11 @@ function FotosDoMomento({
   vinculo,
   momento,
   urls,
+  onErroFoto,
 }: {
   vinculo: Vinculo;
   momento: 'retirada' | 'devolucao';
-  urls: Record<string, string>;
-}) {
+} & FotosProps) {
   const fotos = vinculo.fotos
     .filter((f) => f.momento === momento)
     .sort((a, b) => ORDEM_POSICAO.indexOf(a.posicao) - ORDEM_POSICAO.indexOf(b.posicao));
@@ -484,7 +494,13 @@ function FotosDoMomento({
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.fotos}>
       {fotos.map((f) => (
-        <FotoRemota key={f.id} path={f.path} urls={urls} descricao={`Foto da ${nome}: ${ROTULO_POSICAO[f.posicao]}`} />
+        <FotoRemota
+          key={f.id}
+          path={f.path}
+          urls={urls}
+          descricao={`Foto da ${nome}: ${ROTULO_POSICAO[f.posicao]}`}
+          onErro={onErroFoto}
+        />
       ))}
     </ScrollView>
   );

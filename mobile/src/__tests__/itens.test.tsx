@@ -4,6 +4,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import {
   adicionarItem,
   atualizarItem,
+  buscarVeiculo,
   definirHistoricoInicial,
   listarItens,
   sugestaoCusto,
@@ -15,6 +16,7 @@ import { renderComCliente } from '@/testes/renderComCliente';
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'v1' }) }));
 jest.mock('@/lib/cliente', () => ({ supabase: {} }));
 jest.mock('@/api/veiculos', () => ({
+  buscarVeiculo: jest.fn(),
   listarItens: jest.fn(),
   definirHistoricoInicial: jest.fn(),
   atualizarItem: jest.fn(),
@@ -27,6 +29,7 @@ const historicoMock = definirHistoricoInicial as jest.Mock;
 const atualizarMock = atualizarItem as jest.Mock;
 const adicionarMock = adicionarItem as jest.Mock;
 const sugestaoMock = sugestaoCusto as jest.Mock;
+const veiculoMock = buscarVeiculo as jest.Mock;
 
 const oleo: ItemVeiculo = {
   id: 'i1',
@@ -83,8 +86,12 @@ async function esperarSugestao() {
 }
 
 
+afterEach(() => jest.restoreAllMocks());
+
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-07T15:00:00Z').getTime());
+  veiculoMock.mockResolvedValue({ id: 'v1', fleet_id: 'f1', placa: 'ABC1D23', km_atual: 45200 });
   listarMock.mockResolvedValue([oleo, pneus, correia]);
   historicoMock.mockResolvedValue(undefined);
   atualizarMock.mockResolvedValue(1);
@@ -188,6 +195,44 @@ describe('histórico inicial', () => {
     expect(historicoMock).not.toHaveBeenCalled();
   });
 
+  it('data no futuro não é aceita', async () => {
+    await renderizar();
+    await abrirOleo();
+    await fireEvent.changeText(screen.getByLabelText('Última troca: data (dd/mm/aaaa)'), '08/10/2026');
+    await fireEvent.press(screen.getByText('Salvar'));
+    expect(await screen.findByText('A data não pode ser no futuro.')).toBeTruthy();
+    expect(historicoMock).not.toHaveBeenCalled();
+  });
+
+  it('a data de hoje é aceita', async () => {
+    await renderizar();
+    await abrirOleo();
+    await fireEvent.changeText(screen.getByLabelText('Última troca: data (dd/mm/aaaa)'), '07/10/2026');
+    await fireEvent.press(screen.getByText('Salvar'));
+    await waitFor(() => expect(historicoMock).toHaveBeenCalledWith('i1', null, '2026-10-07'));
+  });
+
+  it('km maior que o km atual do carro não é aceito', async () => {
+    await renderizar();
+    await abrirOleo();
+    await waitFor(() => expect(veiculoMock).toHaveBeenCalledWith('v1'));
+    await fireEvent.changeText(screen.getByLabelText('Última troca: km'), '45201');
+    await fireEvent.press(screen.getByText('Salvar'));
+    expect(
+      await screen.findByText('O km não pode ser maior que o km atual do carro (45.200 km).'),
+    ).toBeTruthy();
+    expect(historicoMock).not.toHaveBeenCalled();
+  });
+
+  it('km igual ao km atual do carro é aceito', async () => {
+    await renderizar();
+    await abrirOleo();
+    await waitFor(() => expect(veiculoMock).toHaveBeenCalled());
+    await fireEvent.changeText(screen.getByLabelText('Última troca: km'), '45200');
+    await fireEvent.press(screen.getByText('Salvar'));
+    await waitFor(() => expect(historicoMock).toHaveBeenCalledWith('i1', 45200, null));
+  });
+
   it('km inválido não salva', async () => {
     await renderizar();
     await abrirOleo();
@@ -271,11 +316,17 @@ describe('intervalo e custo', () => {
     expect(await screen.findByText('Alterado em 1 carro.')).toBeTruthy();
   });
 
-  it('cancelar a pergunta volta ao editor sem alterar o plano', async () => {
+  it('a pergunta avisa que o histórico já foi salvo', async () => {
     await editarEPerguntar();
-    await fireEvent.press(screen.getByText('Cancelar'));
+    expect(screen.getByText('Histórico salvo.')).toBeTruthy();
+    expect(screen.queryByText('Cancelar')).toBeNull();
+  });
+
+  it('"Manter o plano atual" fecha sem alterar o plano', async () => {
+    await editarEPerguntar();
+    await fireEvent.press(screen.getByText('Manter o plano atual'));
     expect(screen.queryByText('Aplicar esta mudança a:')).toBeNull();
-    expect(screen.getByLabelText('Intervalo em km').props.value).toBe('8000');
+    expect(screen.queryByLabelText('Intervalo em km')).toBeNull();
     expect(atualizarMock).not.toHaveBeenCalled();
   });
 
@@ -313,6 +364,15 @@ describe('intervalo e custo', () => {
     await fireEvent.press(screen.getByText('Salvar'));
     expect(await screen.findByText('Intervalo inválido.')).toBeTruthy();
     expect(screen.getByText('Custo inválido.')).toBeTruthy();
+    expect(historicoMock).not.toHaveBeenCalled();
+  });
+
+  it('custo acima de R$ 99.999.999,99 é recusado', async () => {
+    await renderizar();
+    await abrirOleo();
+    await fireEvent.changeText(screen.getByLabelText('Custo estimado (R$)'), '100.000.000,00');
+    await fireEvent.press(screen.getByText('Salvar'));
+    expect(await screen.findByText('Valor muito alto.')).toBeTruthy();
     expect(historicoMock).not.toHaveBeenCalled();
   });
 
