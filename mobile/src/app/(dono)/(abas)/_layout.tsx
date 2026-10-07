@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Link, Tabs } from 'expo-router';
+import { Pressable } from 'react-native';
 
 import { cores } from '@/lib/tema';
 
@@ -12,6 +13,21 @@ const ABAS: { nome: string; titulo: string; icone: NomeIcone }[] = [
   { nome: 'motoristas', titulo: 'Motoristas', icone: 'people' },
   { nome: 'avisos', titulo: 'Avisos', icone: 'notifications' },
 ];
+
+function BotaoConfiguracoes() {
+  return (
+    <Link href="/(dono)/configuracoes" asChild>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Configurações"
+        hitSlop={8}
+        style={{ paddingHorizontal: 16 }}
+      >
+        <Ionicons name="settings-outline" size={24} color={cores.primaria} />
+      </Pressable>
+    </Link>
+  );
+}
 
 export default function AbasDono() {
   return (
@@ -28,6 +44,7 @@ export default function AbasDono() {
           options={{
             title: a.titulo,
             tabBarIcon: ({ color, size }) => <Ionicons name={a.icone} size={size} color={color} />,
+            ...(a.nome === 'index' ? { headerRight: BotaoConfiguracoes } : {}),
           }}
         />
       ))}

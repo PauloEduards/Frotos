@@ -11,5 +11,12 @@ export default function DonoLayout() {
   // Perfil ausente ou de outro papel: a raiz decide o destino.
   if (perfil?.papel !== 'proprietario') return <Redirect href="/" />;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="configuracoes"
+        options={{ headerShown: true, title: 'Configurações', headerBackTitle: 'Voltar' }}
+      />
+    </Stack>
+  );
 }
