@@ -15,8 +15,11 @@ import { Carregando } from '@/componentes/Carregando';
 import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
+import { SemFrota } from '@/componentes/SemFrota';
 import { mensagemErro } from '@/lib/erros';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 const NIVEIS: { valor: Membro['nivel_manutencao']; rotulo: string }[] = [
   { valor: 'sem_permissao', rotulo: 'Não registra' },
@@ -36,6 +39,11 @@ export default function Motoristas() {
   });
   const [atualizando, setAtualizando] = useState(false);
 
+  useRefreshOnFocus(() => {
+    void frota.refetch();
+    if (fleetId !== undefined) void membros.refetch();
+  });
+
   async function atualizar() {
     setAtualizando(true);
     try {
@@ -46,6 +54,16 @@ export default function Motoristas() {
   }
 
   if (frota.isPending || (fleetId !== undefined && membros.isPending)) return <Carregando />;
+
+  if (frota.data === null) {
+    return (
+      <View style={estilos.fundo}>
+        <View style={estilos.conteudo}>
+          <SemFrota />
+        </View>
+      </View>
+    );
+  }
 
   const erro = frota.isError ? frota.error : membros.isError ? membros.error : null;
   const lista = membros.data?.filter((m) => m.status !== 'removido');
@@ -108,7 +126,7 @@ function CartaoPedido({ membro, fleetId }: { membro: Membro; fleetId: string | u
   const [erro, setErro] = useState<string | null>(null);
   const responder = useMutation({
     mutationFn: (aprovar: boolean) => responderEntrada(membro.id, aprovar),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['membros', fleetId] }),
+    onSuccess: () => invalidarDadosDaFrota(queryClient),
     onError: (e) => setErro(mensagemErro(e)),
   });
 
@@ -145,11 +163,7 @@ function CartaoMotorista({ membro, fleetId }: { membro: Membro; fleetId: string 
 
   const remover = useMutation({
     mutationFn: () => removerMotorista(membro.id),
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['membros', fleetId] }),
-        queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-      ]),
+    onSuccess: () => invalidarDadosDaFrota(queryClient),
     onError: (e) => setErro(mensagemErro(e)),
   });
 

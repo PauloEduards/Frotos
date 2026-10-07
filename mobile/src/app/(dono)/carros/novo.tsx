@@ -20,6 +20,7 @@ import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
 import { mensagemErro } from '@/lib/erros';
 import { normalizarPlaca } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 
 const MAX_INT = 2147483647;
@@ -85,7 +86,7 @@ function Formulario({ fleetId }: { fleetId: string }) {
   const cadastrar = useMutation({
     mutationFn: (v: NovoVeiculo) => cadastrarVeiculo(fleetId, v),
     onSuccess: async ({ id }) => {
-      await queryClient.invalidateQueries({ queryKey: ['veiculos'] });
+      await invalidarDadosDaFrota(queryClient);
       router.replace(`/(dono)/carros/${id}/itens`);
     },
     onError: (e) => setErroGeral(mensagemErro(e)),

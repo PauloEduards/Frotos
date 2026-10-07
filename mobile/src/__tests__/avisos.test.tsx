@@ -1,15 +1,19 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { carroDoItem, listarAvisos, marcarLido, marcarTodosLidos, type Aviso } from '@/api/avisos';
 import Avisos from '@/app/(dono)/(abas)/avisos';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: mockNavigate }) }));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, navigate: mockNavigate }),
+  useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste,
+}));
 jest.mock('@/api/avisos', () => ({
   listarAvisos: jest.fn(),
   marcarLido: jest.fn(),
@@ -137,6 +141,30 @@ describe('Avisos', () => {
     await renderizar();
     await fireEvent.press(await screen.findByText('Marcar todos como lidos'));
     await waitFor(() => expect(m.todos).toHaveBeenCalled());
+  });
+
+  it('toque duplo enquanto abre não marca nem navega duas vezes', async () => {
+    let concluir!: () => void;
+    m.lido.mockReturnValue(new Promise<void>((r) => (concluir = r)));
+    m.listar.mockResolvedValue([aviso({ ref_tabela: 'vehicles', ref_id: 'v1' })]);
+    await renderizar();
+    const cartao = await screen.findByText('Título');
+    await fireEvent.press(cartao);
+    await fireEvent.press(cartao);
+    expect(m.lido).toHaveBeenCalledTimes(1);
+    await act(async () => concluir());
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+    await fireEvent.press(screen.getByText('Título'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(2));
+  });
+
+  it('voltar para a aba recarrega os avisos', async () => {
+    m.listar.mockResolvedValue([]);
+    await renderizar();
+    await screen.findByText('Nenhum aviso por enquanto.');
+    m.listar.mockResolvedValue([aviso({ titulo: 'Acidente informado' })]);
+    await voltarAoFoco();
+    expect(await screen.findByText('Acidente informado')).toBeTruthy();
   });
 
   it('vazio mostra a mensagem', async () => {

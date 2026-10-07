@@ -1,10 +1,12 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { minhaFrota } from '@/api/frota';
 import { gastosRealizados, projecaoGastos, type LinhaProjecao, type LinhaRealizado } from '@/api/gastos';
 import Gastos from '@/app/(dono)/(abas)/gastos';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 
+jest.mock('expo-router', () => ({ useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste }));
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/gastos', () => ({ projecaoGastos: jest.fn(), gastosRealizados: jest.fn() }));
 
@@ -81,6 +83,37 @@ describe('Gastos', () => {
     await renderizar();
     expect(await screen.findByText('Sem gastos previstos para este período.')).toBeTruthy();
     expect(screen.queryByText('Revisão recomendada')).toBeNull();
+  });
+
+  it('voltar para a aba recarrega previsão e gastos', async () => {
+    await renderizar();
+    await screen.findByText('Previsto: R$ 610,00');
+    m.projecao.mockResolvedValue([linha({ valor: 100, data: '2026-10-10' })]);
+    m.realizado.mockResolvedValue([]);
+    await voltarAoFoco();
+    expect(await screen.findByText('Previsto: R$ 100,00')).toBeTruthy();
+    expect(screen.getByText('Gasto nos últimos 30 dias: R$ 0,00')).toBeTruthy();
+  });
+
+  it('puxar para atualizar refaz previsão e gastos', async () => {
+    await renderizar();
+    await screen.findByText('Previsto: R$ 610,00');
+    m.projecao.mockResolvedValue([]);
+    const tela = screen.getByTestId('gastos');
+    await act(async () => {
+      await tela.props.refreshControl.props.onRefresh();
+    });
+    expect(await screen.findByText('Previsto: R$ 0,00')).toBeTruthy();
+    expect(m.projecao).toHaveBeenCalledTimes(2);
+    expect(m.realizado).toHaveBeenCalledTimes(2);
+  });
+
+  it('sem frota orienta a criar a frota', async () => {
+    m.frota.mockResolvedValue(null);
+    await renderizar();
+    expect(await screen.findByText('Crie sua frota na aba Frota para começar.')).toBeTruthy();
+    expect(screen.queryByText('Sem gastos previstos para este período.')).toBeNull();
+    expect(screen.queryByText(/^Previsto:/)).toBeNull();
   });
 
   it('mostra o erro com opção de tentar de novo', async () => {

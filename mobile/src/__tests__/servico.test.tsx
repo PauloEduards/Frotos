@@ -99,7 +99,9 @@ describe('registrar serviço', () => {
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     const chaves = invalidar.mock.calls.map((c) => JSON.stringify(c[0].queryKey));
-    expect(chaves).toEqual(expect.arrayContaining(['["veiculos"]', '["pendencias"]']));
+    expect(chaves).toEqual(
+      expect.arrayContaining(['["veiculos"]', '["pendencias"]', '["itens"]', '["gastos"]']),
+    );
   });
 
   it('"Outro serviço" pede o nome e envia nome_outro', async () => {

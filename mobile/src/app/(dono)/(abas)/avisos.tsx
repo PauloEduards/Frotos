@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { carroDoItem, listarAvisos, marcarLido, marcarTodosLidos, type Aviso } from '@/api/avisos';
@@ -11,6 +11,7 @@ import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
 import { formatarDataHoraBrt } from '@/lib/formatos';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 const VERMELHO = '#C62828';
 
@@ -20,6 +21,10 @@ export default function Avisos() {
   const avisos = useQuery({ queryKey: ['avisos', 'lista'], queryFn: () => listarAvisos() });
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Um toque de cada vez: enquanto um aviso abre, novos toques são ignorados.
+  const abrindo = useRef(false);
+
+  useRefreshOnFocus(() => avisos.refetch());
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ['avisos'] });
 
@@ -39,6 +44,16 @@ export default function Avisos() {
   }
 
   async function abrir(aviso: Aviso) {
+    if (abrindo.current) return;
+    abrindo.current = true;
+    try {
+      await abrirAviso(aviso);
+    } finally {
+      abrindo.current = false;
+    }
+  }
+
+  async function abrirAviso(aviso: Aviso) {
     setErro(null);
     try {
       if (!aviso.lida) {

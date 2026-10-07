@@ -22,9 +22,12 @@ import { Carregando } from '@/componentes/Carregando';
 import { FotoRemota } from '@/componentes/FotoRemota';
 import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
+import { SemFrota } from '@/componentes/SemFrota';
 import { mensagemErro } from '@/lib/erros';
 import { formatarData, formatarDataBrt, formatarKm, formatarReais } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 const ROTULO_TIPO: Record<TipoOcorrencia, string> = {
   mecanico: 'Barulho/mecânico',
@@ -70,6 +73,11 @@ export default function Pendencias() {
   });
   const [atualizando, setAtualizando] = useState(false);
 
+  useRefreshOnFocus(() => {
+    void frota.refetch();
+    if (fleetId !== undefined) void pendencias.refetch();
+  });
+
   async function atualizar() {
     setAtualizando(true);
     try {
@@ -80,6 +88,16 @@ export default function Pendencias() {
   }
 
   if (frota.isPending || (fleetId !== undefined && pendencias.isPending)) return <Carregando />;
+
+  if (frota.data === null) {
+    return (
+      <View style={estilos.fundo}>
+        <View style={estilos.conteudo}>
+          <SemFrota />
+        </View>
+      </View>
+    );
+  }
 
   const erro = frota.isError ? frota.error : pendencias.isError ? pendencias.error : null;
   const dados = pendencias.data;
@@ -164,12 +182,7 @@ export default function Pendencias() {
 
 function useInvalidarPendencias() {
   const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['pendencias'] }),
-      queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-      queryClient.invalidateQueries({ queryKey: ['itens'] }),
-    ]);
+  return () => invalidarDadosDaFrota(queryClient);
 }
 
 type Decisao = 'aprovar' | 'recusar' | 'contestar';

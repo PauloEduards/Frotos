@@ -9,6 +9,7 @@ import { Carregando } from '@/componentes/Carregando';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
 import { mensagemErro } from '@/lib/erros';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 
 type Modo = Frota['modo_manutencao'];
@@ -87,7 +88,11 @@ function Formulario({ frota }: { frota: Frota }) {
     mutationFn: (campos: Parameters<typeof atualizarFrota>[1]) => atualizarFrota(frota.id, campos),
     onSuccess: async () => {
       setSalvo(true);
-      await queryClient.invalidateQueries({ queryKey: ['frota'] });
+      // Os limiares mudam o status dos carros e itens, e com eles pendências e gastos.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['frota'] }),
+        invalidarDadosDaFrota(queryClient),
+      ]);
     },
     onError: (e) => setErroGeral(mensagemErro(e)),
   });

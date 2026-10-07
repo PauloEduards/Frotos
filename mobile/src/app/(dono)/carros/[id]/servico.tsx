@@ -12,6 +12,7 @@ import { ChecklistItens, LinhaMarcavel } from '@/componentes/ChecklistItens';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
 import { dataBrParaIso, formatarData, hojeBrt, lerReais, mascararData } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 
 const STATUS_PRE_MARCADOS = ['proximo', 'urgente', 'vencido'];
@@ -44,11 +45,7 @@ export default function RegistrarServico() {
   const salvar = useMutation({
     mutationFn: (d: Parameters<typeof registrarServico>[0]) => registrarServico(d),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-        queryClient.invalidateQueries({ queryKey: ['itens'] }),
-        queryClient.invalidateQueries({ queryKey: ['pendencias'] }),
-      ]);
+      await invalidarDadosDaFrota(queryClient);
       router.back();
     },
     onError: (e) => setErroGeral(mensagemErro(e)),

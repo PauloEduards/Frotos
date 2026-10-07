@@ -105,6 +105,17 @@ describe('cadastro de carro', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(dono)/carros/v1/itens'));
   });
 
+  it('carro novo atualiza também gastos e pendências', async () => {
+    cadastrarMock.mockResolvedValue({ id: 'v1' });
+    await renderizarFormulario();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await preencher();
+    await fireEvent.press(screen.getByText('Cadastrar carro'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
+  });
+
   it('placa inválida não cadastra', async () => {
     await renderizarFormulario();
     await preencher({ placa: 'ABC12' });

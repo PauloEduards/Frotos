@@ -15,9 +15,11 @@ import {
   type ServicoRevisao,
 } from '@/api/pendencias';
 import Pendencias from '@/app/(dono)/(abas)/pendencias';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
+jest.mock('expo-router', () => ({ useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste }));
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/fotos', () => ({ urlsAssinadas: jest.fn() }));
 jest.mock('@/api/pendencias', () => ({
@@ -124,6 +126,43 @@ describe('Pendências', () => {
     await fireEvent.press(screen.getByText('Aprovar'));
     await waitFor(() => expect(m.revisar).toHaveBeenCalledWith('s1', 'aprovar', undefined));
     await esperarAtualizacao();
+  });
+
+  it('aprovar atualiza também gastos, carros e o selo da aba', async () => {
+    m.servicos.mockResolvedValue([servico]);
+    await renderizar();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.press(await screen.findByText('Aprovar'));
+    await esperarAtualizacao();
+    const chaves = invalidar.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(chaves).toEqual(expect.arrayContaining(['["gastos"]', '["veiculos"]', '["pendencias"]']));
+  });
+
+  it('resolver ocorrência atualiza também gastos e carros', async () => {
+    m.ocorrencias.mockResolvedValue([ocorrencia]);
+    await renderizar();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.press(await screen.findByText('Marcar como resolvida'));
+    await esperarAtualizacao();
+    const chaves = invalidar.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(chaves).toEqual(expect.arrayContaining(['["gastos"]', '["veiculos"]']));
+  });
+
+  it('voltar para a aba mostra o que chegou depois (ex.: acidente informado pelo motorista)', async () => {
+    await renderizar();
+    await screen.findByText('Nenhuma pendência. Tudo em dia!');
+    m.ocorrencias.mockResolvedValue([ocorrencia]);
+    await voltarAoFoco();
+    expect(await screen.findByText('Acidente grave')).toBeOnTheScreen();
+    expect(screen.queryByText('Nenhuma pendência. Tudo em dia!')).toBeNull();
+  });
+
+  it('sem frota orienta a criar a frota, sem dizer que está tudo em dia', async () => {
+    m.minhaFrota.mockResolvedValue(null);
+    await renderizar();
+    expect(await screen.findByText('Crie sua frota na aba Frota para começar.')).toBeOnTheScreen();
+    expect(screen.queryByText('Nenhuma pendência. Tudo em dia!')).toBeNull();
+    expect(m.servicos).not.toHaveBeenCalled();
   });
 
   it('recusa com motivo', async () => {

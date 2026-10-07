@@ -19,6 +19,7 @@ import {
   type Vinculo,
 } from '@/api/veiculos';
 import DetalheCarro from '@/app/(dono)/carros/[id]/index';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockPush = jest.fn();
@@ -26,6 +27,7 @@ const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'v1' }),
   useRouter: () => ({ push: mockPush, back: mockBack }),
+  useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste,
 }));
 jest.mock('@/lib/cliente', () => ({ supabase: {} }));
 jest.mock('@/api/fotos', () => ({ urlsAssinadas: jest.fn() }));
@@ -141,6 +143,22 @@ describe('cabeçalho', () => {
     expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
     await fireEvent.press(screen.getByText('Tentar de novo'));
     expect(await screen.findByText('ABC1D23')).toBeTruthy();
+  });
+});
+
+describe('foco', () => {
+  it('voltar para a tela recarrega o carro e as listas', async () => {
+    await renderizar();
+    await screen.findByText('Nenhum pedido aberto.');
+    pedidosMock.mockResolvedValue([
+      { id: 'p1', itens: ['x'], prazo: '2026-10-20', observacao: null, driver_id: 'm1' },
+    ]);
+    buscarMock.mockResolvedValue({ ...veiculo, km_atual: 46000 });
+    await voltarAoFoco();
+    expect(await screen.findByText('Prazo: 20/10/2026')).toBeTruthy();
+    expect(await screen.findByText('Km atual: 46.000 km')).toBeTruthy();
+    expect(statusMock).toHaveBeenCalledTimes(2);
+    expect(servicosMock).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -439,6 +457,17 @@ describe('Pedidos abertos', () => {
     await botoes.find((b) => b.style !== 'cancel')?.onPress?.();
     await waitFor(() => expect(cancelarMock).toHaveBeenCalledWith('p1'));
   });
+
+  it('cancelar o pedido atualiza também gastos e pendências', async () => {
+    pedidosMock.mockResolvedValue([pedido]);
+    await renderizar();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.press(await screen.findByText('Cancelar'));
+    const botoes = alertSpy.mock.calls[0][2] as BotaoAlerta[];
+    await botoes.find((b) => b.style === 'destructive')?.onPress?.();
+    await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['pendencias'] });
+  });
 });
 
 describe('erro ao cancelar pedido', () => {
@@ -470,6 +499,16 @@ describe('menu Mais', () => {
     await fireEvent.changeText(screen.getByLabelText('Km correto'), '45000');
     await fireEvent.press(screen.getByText('Salvar km'));
     await waitFor(() => expect(corrigirMock).toHaveBeenCalledWith('v1', 45000));
+  });
+
+  it('corrigir km atualiza também gastos e itens', async () => {
+    await abrirMais();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.press(screen.getByText('Corrigir km'));
+    await fireEvent.changeText(screen.getByLabelText('Km correto'), '45000');
+    await fireEvent.press(screen.getByText('Salvar km'));
+    await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['itens'] });
   });
 
   it('Corrigir km recusa valor inválido', async () => {

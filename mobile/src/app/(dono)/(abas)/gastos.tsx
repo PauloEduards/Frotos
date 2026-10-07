@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { minhaFrota } from '@/api/frota';
 import { gastosRealizados, projecaoGastos } from '@/api/gastos';
@@ -10,6 +10,7 @@ import { GraficoBarras } from '@/componentes/GraficoBarras';
 import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
+import { SemFrota } from '@/componentes/SemFrota';
 import {
   porCarro,
   porItem,
@@ -21,6 +22,7 @@ import {
 import { mensagemErro } from '@/lib/erros';
 import { formatarReais, hojeBrt } from '@/lib/formatos';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 type Periodo = '30' | '60' | '90';
 
@@ -48,6 +50,23 @@ export default function Gastos() {
     enabled: habilitado,
   });
 
+  const [atualizando, setAtualizando] = useState(false);
+
+  function recarregar() {
+    return Promise.all([frota.refetch(), ...(habilitado ? [projecao.refetch(), realizado.refetch()] : [])]);
+  }
+
+  async function atualizar() {
+    setAtualizando(true);
+    try {
+      await recarregar();
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
+  useRefreshOnFocus(recarregar);
+
   const erro = frota.isError ? frota.error : projecao.isError ? projecao.error : realizado.isError ? realizado.error : null;
   const carregando = frota.isPending || (habilitado && (projecao.isPending || realizado.isPending));
 
@@ -60,6 +79,8 @@ export default function Gastos() {
   let corpo;
   if (carregando && !erro) {
     corpo = <Carregando />;
+  } else if (frota.data === null) {
+    corpo = <SemFrota />;
   } else if (erro) {
     corpo = (
       <View style={estilos.bloco}>
@@ -78,7 +99,14 @@ export default function Gastos() {
   }
 
   return (
-    <ScrollView style={estilos.fundo} contentContainerStyle={estilos.conteudo}>
+    <ScrollView
+      testID="gastos"
+      style={estilos.fundo}
+      contentContainerStyle={estilos.conteudo}
+      refreshControl={
+        habilitado ? <RefreshControl refreshing={atualizando} onRefresh={() => void atualizar()} /> : undefined
+      }
+    >
       <Seletor opcoes={OPCOES} valor={periodo} onChange={setPeriodo} rotulo="Período" />
       {corpo}
     </ScrollView>

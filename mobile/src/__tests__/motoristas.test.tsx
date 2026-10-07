@@ -11,9 +11,11 @@ import {
   type Membro,
 } from '@/api/frota';
 import Motoristas from '@/app/(dono)/(abas)/motoristas';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 import { ErroApp } from '@/lib/erros';
 
+jest.mock('expo-router', () => ({ useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste }));
 jest.mock('@/api/frota', () => ({
   minhaFrota: jest.fn(),
   listarMembros: jest.fn(),
@@ -141,6 +143,32 @@ describe('motoristas', () => {
     botoes.find((b) => b.text === 'Remover da frota')?.onPress?.();
     await waitFor(() => expect(mocks.removerMotorista).toHaveBeenCalledWith('a'));
     await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['membros'] });
+  });
+
+  it('aprovar a entrada atualiza motoristas e os dados da frota', async () => {
+    mocks.listarMembros.mockResolvedValue([membro({ status: 'pendente', id: 'p1' })]);
+    await renderizar();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.press(await screen.findByText('Aprovar'));
+    await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['membros'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
+  });
+
+  it('voltar para a aba recarrega os motoristas', async () => {
+    await renderizar();
+    await screen.findByText(VAZIO);
+    mocks.listarMembros.mockResolvedValue([membro({ status: 'pendente', id: 'p1', nome: 'Bruno Lima' })]);
+    await voltarAoFoco();
+    expect(await screen.findByText('Bruno Lima')).toBeTruthy();
+  });
+
+  it('sem frota orienta a criar a frota', async () => {
+    mocks.minhaFrota.mockResolvedValue(null);
+    await renderizar();
+    expect(await screen.findByText('Crie sua frota na aba Frota para começar.')).toBeTruthy();
+    expect(screen.queryByText(VAZIO)).toBeNull();
   });
 
   it('erro ao carregar mostra mensagem e tentar de novo', async () => {

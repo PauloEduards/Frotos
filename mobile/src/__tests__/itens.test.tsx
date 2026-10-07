@@ -156,6 +156,15 @@ describe('histórico inicial', () => {
     await waitFor(() => expect(screen.queryByLabelText('Última troca: km')).toBeNull());
   });
 
+  it('salvar o histórico atualiza também carros e gastos', async () => {
+    await renderizar();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await abrirOleo();
+    await fireEvent.press(screen.getByText('Salvar'));
+    await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
+  });
+
   it('digitar só os números aplica a máscara da data', async () => {
     await renderizar();
     await abrirOleo();
@@ -366,6 +375,16 @@ describe('adicionar item', () => {
     );
     await waitFor(() => expect(listarMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByLabelText('Nome do item')).toBeNull());
+  });
+
+  it('item novo atualiza também carros e gastos', async () => {
+    await abrirNovo();
+    const invalidar = jest.spyOn(client, 'invalidateQueries');
+    await fireEvent.changeText(screen.getByLabelText('Nome do item'), 'Bateria');
+    await fireEvent.changeText(screen.getByLabelText('Intervalo em meses'), '24');
+    await fireEvent.press(screen.getByText('Salvar item'));
+    await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] }));
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
   });
 
   it('sem custo informado usa zero', async () => {

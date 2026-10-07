@@ -15,6 +15,7 @@ import { mensagemErro } from '@/lib/erros';
 import { formatarData } from '@/lib/formatos';
 import { corStatus, prioridadeStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 const CHAVE = ['frota'];
 
@@ -27,6 +28,11 @@ export default function PainelFrota() {
     enabled: fleetId !== undefined,
   });
   const [atualizando, setAtualizando] = useState(false);
+
+  useRefreshOnFocus(() => {
+    void frota.refetch();
+    if (fleetId !== undefined) void carros.refetch();
+  });
 
   async function atualizar() {
     setAtualizando(true);

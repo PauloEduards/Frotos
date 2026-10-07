@@ -5,10 +5,14 @@ import { Alert, Share } from 'react-native';
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
 import { resumoFrota, type ResumoCarro } from '@/api/veiculos';
 import PainelFrota from '@/app/(dono)/(abas)/index';
+import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useFocusEffect: require('@/testes/foco').useFocusEffectDeTeste,
+}));
 jest.mock('@/api/veiculos', () => ({ resumoFrota: jest.fn() }));
 jest.mock('@/api/frota', () => ({
   minhaFrota: jest.fn(),
@@ -53,6 +57,14 @@ beforeEach(() => {
 
 describe('painel sem frota', () => {
   beforeEach(() => minhaFrotaMock.mockResolvedValue(null));
+
+  it('voltar para a aba sem frota não consulta carros', async () => {
+    await renderizar();
+    await screen.findByText('Crie sua frota');
+    await voltarAoFoco();
+    await waitFor(() => expect(minhaFrotaMock).toHaveBeenCalledTimes(2));
+    expect(resumoMock).not.toHaveBeenCalled();
+  });
 
   it('mostra o formulário de criação', async () => {
     await renderizar();
@@ -259,6 +271,16 @@ describe('lista de carros', () => {
     await renderizar();
     await fireEvent.press(await screen.findByText('ABC1D23 · Chevrolet Onix'));
     expect(mockPush).toHaveBeenCalledWith('/carros/v9');
+  });
+
+  it('voltar para a aba recarrega a frota e os carros', async () => {
+    await renderizar();
+    await screen.findByText('Nenhum carro cadastrado. Toque em "Adicionar carro".');
+    resumoMock.mockResolvedValue([carro({ vehicle_id: 'v1', placa: 'ABC1D23' })]);
+    await voltarAoFoco();
+    expect(await screen.findByText('ABC1D23 · Chevrolet Onix')).toBeTruthy();
+    expect(minhaFrotaMock).toHaveBeenCalledTimes(2);
+    expect(resumoMock).toHaveBeenCalledTimes(2);
   });
 
   it('puxar para atualizar refaz a consulta', async () => {

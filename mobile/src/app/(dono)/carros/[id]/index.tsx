@@ -39,8 +39,10 @@ import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
 import { formatarData, formatarDataBrt, formatarKm, formatarReais } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { prioridadeStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
+import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
 
 const ROTULO_ORIGEM: Record<OrigemKm, string> = {
   retirada: 'Retirada',
@@ -96,11 +98,8 @@ export default function DetalheCarro() {
   const [erroPedido, setErroPedido] = useState<string | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
-  async function aposAcao() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-      queryClient.invalidateQueries({ queryKey: ['pendencias'] }),
-    ]);
+  function aposAcao() {
+    return invalidarDadosDaFrota(queryClient);
   }
 
   const cancelar = useMutation({
@@ -165,22 +164,28 @@ export default function DetalheCarro() {
   });
   const urls = fotos.data ?? {};
 
+  function recarregar() {
+    return Promise.all([
+      veiculo.refetch(),
+      status.refetch(),
+      previsao.refetch(),
+      leituras.refetch(),
+      servicosQ.refetch(),
+      vinculosQ.refetch(),
+      pedidosQ.refetch(),
+    ]);
+  }
+
   async function atualizar() {
     setAtualizando(true);
     try {
-      await Promise.all([
-        veiculo.refetch(),
-        status.refetch(),
-        previsao.refetch(),
-        leituras.refetch(),
-        servicosQ.refetch(),
-        vinculosQ.refetch(),
-        pedidosQ.refetch(),
-      ]);
+      await recarregar();
     } finally {
       setAtualizando(false);
     }
   }
+
+  useRefreshOnFocus(recarregar);
 
   if (veiculo.isPending) return <Carregando />;
 

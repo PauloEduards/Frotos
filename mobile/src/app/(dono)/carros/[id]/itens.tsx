@@ -33,6 +33,7 @@ import {
   lerReais,
   mascararData,
 } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { corStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
 
@@ -243,10 +244,7 @@ function EditorItem({
   });
 
   function recarregar() {
-    return Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['itens'] }),
-      queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-    ]);
+    return invalidarDadosDaFrota(queryClient);
   }
 
   const salvarHistorico = useMutation({
@@ -378,10 +376,7 @@ function NovoItem({ vehicleId, onFechar }: { vehicleId: string; onFechar: () => 
     mutationFn: (v: PlanoItem & { nome: string }) => adicionarItem(vehicleId, v),
     onSuccess: async () => {
       onFechar();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['itens', vehicleId] }),
-        queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-      ]);
+      await invalidarDadosDaFrota(queryClient);
     },
     onError: (e) => setErroGeral(mensagemErro(e)),
   });

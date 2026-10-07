@@ -67,6 +67,9 @@ describe('configurações da frota', () => {
       }),
     );
     await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ['frota'] }));
+    // Os limiares mudam o status dos carros e itens, e com eles as pendências e os gastos.
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['gastos'] });
     expect(await screen.findByText('Configurações salvas.')).toBeTruthy();
   });
 

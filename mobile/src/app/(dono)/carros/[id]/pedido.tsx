@@ -12,6 +12,7 @@ import { ChecklistItens } from '@/componentes/ChecklistItens';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
 import { dataBrParaIso, hojeBrt, mascararData } from '@/lib/formatos';
+import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 
 const STATUS_PRE_MARCADOS = ['proximo', 'urgente', 'vencido'];
@@ -41,10 +42,7 @@ export default function PedidoManutencao() {
     mutationFn: (d: { itens: string[]; prazo: string; observacao?: string }) =>
       criarPedido(id, d.itens, d.prazo, d.observacao),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['veiculos'] }),
-        queryClient.invalidateQueries({ queryKey: ['pendencias'] }),
-      ]);
+      await invalidarDadosDaFrota(queryClient);
       router.back();
     },
     onError: (e) => setErroGeral(mensagemErro(e)),
