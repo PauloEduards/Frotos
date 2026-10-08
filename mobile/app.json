@@ -45,7 +45,8 @@
           "cameraPermission": "O Frotos usa a câmera para registrar fotos do carro e do painel.",
           "photosPermission": false
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

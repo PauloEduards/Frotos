@@ -1,4 +1,4 @@
-# Frotos - app do proprietário
+# Frotos - app (proprietário e motorista)
 
 App Expo (React Native, Expo Router, TypeScript) para o proprietário acompanhar a frota: carros, manutenções, pendências, gastos, motoristas e avisos.
 
@@ -28,3 +28,33 @@ Libere no Firewall do Windows as portas **54321** (API do Supabase) e **8081** (
 npx tsc --noEmit
 npx jest
 ```
+
+## Contas de teste
+
+| Conta | Papel | Situação |
+|---|---|---|
+| `dono@frotos.dev` | proprietário | Frota Piloto (São Paulo/SP), Argo e Kwid anunciados na busca |
+| `ana@frotos.dev` | motorista | na frota, com o Onix |
+| `bruno@frotos.dev` | motorista | na frota, com o HB20 |
+| `caio@frotos.dev` | motorista | pedido de entrada pendente |
+
+Senha de todas: `senha123`. Para testar a busca de carros, crie uma conta nova de motorista em São Paulo/SP.
+
+## Build de teste (Android)
+
+O push e a câmera funcionam de verdade só numa build instalada (no Expo Go o push não funciona).
+
+1. Instale a ferramenta: `npm i -g eas-cli`
+2. Entre na sua conta Expo (gratuita): `eas login`
+3. Na pasta `mobile`, ligue o projeto: `eas init` (grava o `projectId` no `app.json`)
+4. Credenciais de push do Android (FCM): `eas credentials` e siga o assistente para o Android
+   (ele pede o arquivo `google-services.json` do Firebase; o passo a passo aparece no próprio assistente)
+5. Build para desenvolvimento: `eas build -p android --profile development`
+   - Instale o APK pelo link que aparece no fim e rode `npx expo start --dev-client`
+6. Build para o piloto (sem o servidor de desenvolvimento): `eas build -p android --profile preview`
+   - Mande o link do APK para o dono e os motoristas instalarem
+
+Para o app da build falar com o Supabase, o `.env` precisa apontar para um endereço acessível pelo celular
+(o IP do PC na mesma rede, ou um projeto Supabase na nuvem para o piloto).
+
+O iPhone usa o mesmo código; a build depende só da conta Apple Developer.

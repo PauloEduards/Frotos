@@ -5,6 +5,12 @@ import { Platform } from 'react-native';
 
 import { ligarFocoAoApp } from '@/lib/focoDoApp';
 import { SessaoProvider } from '@/sessao/SessaoProvider';
+import { usePush } from '@/sessao/usePush';
+
+function Navegacao() {
+  usePush();
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }));
@@ -15,7 +21,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessaoProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Navegacao />
       </SessaoProvider>
     </QueryClientProvider>
   );
