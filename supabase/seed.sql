@@ -77,6 +77,14 @@ begin
   values (v_frota, 'EFG5H67', 'Fiat', 'Mobi', 2021, 'Preto', 71000)
   returning id into v_mobi;
 
+  -- ---------- Vitrine: Argo e Kwid anunciados na busca de motoristas ----------
+  -- (os objetos existem no bucket 'carros'; sem conteúdo real, o app mostra o ícone de carro)
+  insert into storage.objects (bucket_id, name, owner_id) values
+    ('carros', v_frota || '/' || v_argo || '/argo.jpg', v_dono::text),
+    ('carros', v_frota || '/' || v_kwid || '/kwid.jpg', v_dono::text);
+  update public.vehicles set anunciado = true, foto_path = v_frota || '/' || v_argo || '/argo.jpg' where id = v_argo;
+  update public.vehicles set anunciado = true, foto_path = v_frota || '/' || v_kwid || '/kwid.jpg' where id = v_kwid;
+
   -- ---------- Histórico inicial dos itens ----------
   -- Base: última troca há 20 dias, 6.000 km atrás (coerente com 300 km/dia). Kwid fica sem histórico.
   update public.vehicle_items i

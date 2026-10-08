@@ -49,6 +49,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"candidaturas": {
+                  Row: {
+                    "criada_em": string,"driver_id": string,"fleet_id": string,"id": string,"mensagem": string | null,"respondida_em": string | null,"status": string,"vehicle_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criada_em"?: string,"driver_id": string,"fleet_id": string,"id"?: string,"mensagem"?: string | null,"respondida_em"?: string | null,"status"?: string,"vehicle_id": string
+                  }
+                  Update: {
+                    "criada_em"?: string,"driver_id"?: string,"fleet_id"?: string,"id"?: string,"mensagem"?: string | null,"respondida_em"?: string | null,"status"?: string,"vehicle_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "candidaturas_driver_id_fkey"
+      columns: ["driver_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "candidaturas_fleet_id_fkey"
+      columns: ["fleet_id"]
+isOneToOne: false
+      referencedRelation: "fleets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "candidaturas_vehicle_id_fkey"
+      columns: ["vehicle_id"]
+isOneToOne: false
+      referencedRelation: "vehicles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"fipe_cache": {
                   Row: {
                     "atualizado_em": string,"chave": string,"dados": NonNullable<Json>
@@ -393,14 +425,14 @@ isOneToOne: false
                   ]
                 },"vehicles": {
                   Row: {
-                    "ano_modelo": number,"ativo": boolean,"cor": string,"criado_em": string,"em_uso": boolean,"exige_aprovacao_sempre": boolean,"fipe_codigo": string | null,"fleet_id": string,"id": string,"km_atual": number,"km_dia_estimado": number,"marca": string,"modelo": string,"placa": string,"visibilidade": Database["public"]['Enums']["visibilidade_carro"]
+                    "ano_modelo": number,"anunciado": boolean,"ativo": boolean,"cor": string,"criado_em": string,"em_uso": boolean,"exige_aprovacao_sempre": boolean,"fipe_codigo": string | null,"fleet_id": string,"foto_path": string | null,"id": string,"km_atual": number,"km_dia_estimado": number,"marca": string,"modelo": string,"placa": string,"visibilidade": Database["public"]['Enums']["visibilidade_carro"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "ano_modelo": number,"ativo"?: boolean,"cor": string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id": string,"id"?: string,"km_atual": number,"km_dia_estimado"?: number,"marca": string,"modelo": string,"placa": string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
+                    "ano_modelo": number,"anunciado"?: boolean,"ativo"?: boolean,"cor": string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id": string,"foto_path"?: string | null,"id"?: string,"km_atual": number,"km_dia_estimado"?: number,"marca": string,"modelo": string,"placa": string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
                   }
                   Update: {
-                    "ano_modelo"?: number,"ativo"?: boolean,"cor"?: string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id"?: string,"id"?: string,"km_atual"?: number,"km_dia_estimado"?: number,"marca"?: string,"modelo"?: string,"placa"?: string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
+                    "ano_modelo"?: number,"anunciado"?: boolean,"ativo"?: boolean,"cor"?: string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id"?: string,"foto_path"?: string | null,"id"?: string,"km_atual"?: number,"km_dia_estimado"?: number,"marca"?: string,"modelo"?: string,"placa"?: string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
                   }
                   Relationships: [
                     {
@@ -420,6 +452,28 @@ isOneToOne: false
             "atualizar_item":
 { Args: { "p_aplicar_em_todos": boolean,"p_custo_estimado": number,"p_intervalo_km": number,"p_intervalo_meses": number,"p_item_id": string }; Returns: number
                            },
+"buscar_carros":
+{ Args: { "p_cidade": string,"p_uf": string }; Returns: {
+              "ano_modelo": number,"cidade": string,"cor": string,"foto_path": string,"frota_nome": string,"marca": string,"modelo": string,"uf": string,"vehicle_id": string
+            }[]
+                           },
+"cancelar_candidatura":
+{ Args: { "p_id": string }; Returns: {
+              "criada_em": string,
+"driver_id": string,
+"fleet_id": string,
+"id": string,
+"mensagem": string | null,
+"respondida_em": string | null,
+"status": string,
+"vehicle_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "candidaturas"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "cancelar_pedido":
 { Args: { "p_request_id": string }; Returns: {
               "criado_em": string,
@@ -455,6 +509,26 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"candidatar":
+{ Args: { "p_mensagem"?: string,"p_vehicle_id": string }; Returns: {
+              "criada_em": string,
+"driver_id": string,
+"fleet_id": string,
+"id": string,
+"mensagem": string | null,
+"respondida_em": string | null,
+"status": string,
+"vehicle_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "candidaturas"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"carro_na_vitrine":
+{ Args: { "p_vehicle_id": string }; Returns: boolean
+                           },
 "carros_para_mim":
 { Args: Record<PropertyKey, never>; Returns: {
               "ano_modelo": number,"cor": string,"em_uso": boolean,"foto_path": string,"marca": string,"modelo": string,"placa": string,"vehicle_id": string
@@ -802,6 +876,23 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "incidents"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"responder_candidatura":
+{ Args: { "p_aceitar": boolean,"p_id": string }; Returns: {
+              "criada_em": string,
+"driver_id": string,
+"fleet_id": string,
+"id": string,
+"mensagem": string | null,
+"respondida_em": string | null,
+"status": string,
+"vehicle_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "candidaturas"
         isOneToOne: true
         isSetofReturn: false
       } },
