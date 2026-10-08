@@ -11,7 +11,7 @@
 O app deixa de ser só uma obrigação para o motorista contratado e passa a dar a ele um **motivo próprio para usar: encontrar carro para trabalhar na sua cidade**. Ao mesmo tempo, o dono ganha um canal para encontrar motoristas.
 
 **Sucesso do bloco 1:**
-1. Um motorista sem frota se cadastra (com CNH), encontra um carro anunciado na cidade dele, se candidata e é aceito pelo dono.
+1. Um motorista sem frota se cadastra (com CPF), encontra um carro anunciado na cidade dele, se candidata e é aceito pelo dono.
 2. Já na frota, ele faz retirada, uso e devolução pelo app, com fotos guiadas, mesmo com internet ruim.
 3. Dono e motorista recebem push.
 4. O app é instalável por uma build de teste do Android.
@@ -19,7 +19,7 @@ O app deixa de ser só uma obrigação para o motorista contratado e passa a dar
 **Fora do bloco 1:**
 - avaliações e scores (bloco 2);
 - OCR do painel;
-- verificação automática da CNH;
+- foto e verificação de CNH (decisão do autor: no início, só CPF + declaração de que tem CNH);
 - FIPE;
 - iPhone, enquanto não houver conta Apple Developer;
 - cobrança.
@@ -53,17 +53,21 @@ O app deixa de ser só uma obrigação para o motorista contratado e passa a dar
 O cadastro de quem escolhe "Sou motorista" pede:
 - nome, telefone, e-mail, senha;
 - **estado (UF) e cidade**;
-- **CNH:** número, validade (dd/mm/aaaa) e **foto da CNH pela câmera**.
+- **CPF**;
+- **interruptor "Tenho CNH"**.
 
 **Regras:**
-- **Validade da CNH:** CNH vencida é recusada com "Sua CNH está vencida." e não completa o cadastro.
-- **Ordem do cadastro:** cria a conta → envia a foto da CNH → salva os dados da CNH no perfil.
-  - Se a foto falhar, o perfil fica com a pendência "Envie a foto da CNH".
-  - Enquanto isso, o motorista não consegue se candidatar.
-- **Onde fica a foto:** num bucket próprio de **documentos**, legível só pelo próprio motorista e por donos com quem ele tem candidatura ou vínculo de frota (ver §8).
-- **Verificação:** é humana. O dono vê a foto quando avalia a candidatura.
-
-**Cidade e estado:** o estado é escolhido numa lista das 27 UFs, e a cidade é digitada. A cidade é comparada sem diferenciar maiúsculas de minúsculas nem acentos (normalização no banco).
+- **CPF:**
+  - O app aplica a máscara `000.000.000-00` e valida os dígitos verificadores.
+  - CPF inválido: "CPF inválido."
+  - O CPF é **único**: um CPF já usado gera "Este CPF já está cadastrado."
+  - Ele é guardado só com os números.
+- **"Tenho CNH":**
+  - é uma declaração do motorista, sem foto e sem verificação no MVP (decisão do autor, para não incomodar nem expor documentos);
+  - quem marcar "não" consegue usar o app, mas **não pode se candidatar a carros**: "Você precisa ter CNH para se candidatar.";
+  - pode mudar a resposta depois, em "Meu perfil".
+- **Quem vê o CPF:** só o próprio motorista e donos com quem ele tem candidatura ou vínculo de frota (ver §8). Nunca outros motoristas.
+- **Cidade e estado:** o estado é escolhido numa lista das 27 UFs, e a cidade é digitada. A cidade é comparada sem diferenciar maiúsculas de minúsculas nem acentos (normalização no banco).
 
 ---
 
@@ -86,8 +90,7 @@ Abas: **Buscar carros · Minhas candidaturas**.
   |---|---|
   | Já tem candidatura pendente para o mesmo carro | "Você já se candidatou para este carro." |
   | Já é membro ativo de uma frota | "Você já faz parte de uma frota." (no MVP, um motorista ativo em uma frota não se candidata a outras) |
-  | CNH vencida | "Sua CNH está vencida." |
-  | Foto da CNH não enviada | "Envie a foto da CNH antes de se candidatar." |
+  | Declarou que não tem CNH | "Você precisa ter CNH para se candidatar." |
 
 ### 4.2 Minhas candidaturas
 - **Lista:** cada candidatura mostra o card do carro (sem placa), a data e o status (**Aguardando**, **Aceita**, **Recusada**, **Cancelada**).
@@ -179,7 +182,7 @@ Lista os carros da frota que estão liberados para ele (§9) e livres, com `Card
   - interruptor **"Anunciar na busca de motoristas"**, desligado por padrão;
   - **"Trocar foto do carro"**.
 - **Motoristas → "Pedidos de motoristas"** (nova seção no topo):
-  - **Lista:** candidaturas pendentes, cada uma com nome, telefone, cidade/UF, foto da CNH (ampliável), validade da CNH (destacada em vermelho se vencer em menos de 30 dias), mensagem e **o carro desejado** (`CardCarro` com placa).
+  - **Lista:** candidaturas pendentes, cada uma com nome, telefone, cidade/UF, CPF (formatado), "Tem CNH: sim", mensagem e **o carro desejado** (`CardCarro` com placa).
   - **Aceitar:**
     - o motorista vira **membro ativo** da frota com nível `com_aprovacao`;
     - o carro fica com visibilidade **"só um motorista" = ele**;
@@ -210,10 +213,10 @@ Lista os carros da frota que estão liberados para ele (§9) e livres, com `Card
 ## 10. Backend — mudanças (nova migração)
 
 **Perfis (`profiles`)**
-- Colunas novas: `uf`, `cidade`, `cnh_numero`, `cnh_validade`, `cnh_foto_path`.
+- Colunas novas: `uf`, `cidade`, `cpf` (único, só os números), `tem_cnh bool default false`.
 - **Leitura de terceiros:**
   - o dono lê esses campos só de motoristas com candidatura para a frota dele ou membros dela;
-  - `cnh_numero` e `cnh_foto_path` nunca ficam visíveis para outros motoristas;
+  - `cpf` nunca fica visível para outros motoristas;
   - `expo_push_token` continua ilegível.
 
 **Frotas (`fleets`)**
@@ -247,9 +250,6 @@ Lista os carros da frota que estão liberados para ele (§9) e livres, com `Card
 - `foto_valida`: passa a exigir dono do objeto = `auth.uid()` e caminho ainda não usado.
 
 **Storage**
-- **Bucket `documentos`** (privado): caminho `{user_id}/cnh/{uuid}.jpg`.
-  - O dono do arquivo lê e escreve.
-  - O dono da frota lê, se houver candidatura ou vínculo.
 - **Bucket `carros`:** caminho `{fleet_id}/{vehicle_id}/{uuid}.jpg`.
   - Legível por qualquer usuário autenticado, porque a foto aparece na busca pública.
   - Só o dono da frota escreve.
@@ -273,16 +273,16 @@ Lista os carros da frota que estão liberados para ele (§9) e livres, com `Card
 
 - **Banco (pgTAP):**
   - busca sem placa e só com carros elegíveis;
-  - candidatura, com as regras de bloqueio da §4.1;
+  - candidatura, com as regras de bloqueio da §4.1 (incluindo sem CNH);
   - aceite atômico (membro, reserva, anúncio desligado, concorrentes recusadas, notificações);
   - visibilidade na retirada, nos três modos;
   - remoção de motorista limpando a visibilidade;
   - fotos antifraude (dono do objeto, reuso);
   - painel obrigatório na retirada e na devolução;
-  - leitura da CNH só por quem pode.
+  - CPF único e legível só por quem pode.
 - **App (Jest):**
   - `Placa`, `CardCarro` (com e sem placa, com e sem foto);
-  - cadastro do motorista (CNH vencida);
+  - cadastro do motorista (CPF inválido/duplicado, interruptor de CNH);
   - busca (vazia, com resultados), candidatura;
   - troca de abas ao ser aceito;
   - retirada guiada (sequência, refazer foto);
