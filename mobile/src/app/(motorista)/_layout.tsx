@@ -14,6 +14,10 @@ export default function MotoristaLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="perfil" options={{ headerShown: true, title: 'Meu perfil', headerBackTitle: 'Voltar' }} />
+      <Stack.Screen name="fluxos/fotos-carro" options={{ headerShown: true, title: 'Fotos do carro', headerBackTitle: 'Voltar' }} />
+      <Stack.Screen name="fluxos/atualizar-km" options={{ headerShown: true, title: 'Atualizar km', headerBackTitle: 'Voltar' }} />
+      <Stack.Screen name="fluxos/ocorrencia" options={{ headerShown: true, title: 'Relatar ocorrência', headerBackTitle: 'Voltar' }} />
+      <Stack.Screen name="fluxos/servico" options={{ headerShown: true, title: 'Registrar serviço', headerBackTitle: 'Voltar' }} />
     </Stack>
   );
 }

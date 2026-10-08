@@ -44,6 +44,7 @@ import { MensagemErro } from '@/componentes/MensagemErro';
 import { mensagemErro } from '@/lib/erros';
 import { formatarData, formatarDataBrt, formatarKm, formatarReais } from '@/lib/formatos';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
+import { descreverPrevisao } from '@/lib/previsao';
 import { prioridadeStatus } from '@/lib/status';
 import { cores, espaco } from '@/lib/tema';
 import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
@@ -433,22 +434,6 @@ function Secao<T>({
   );
 }
 
-function descreverPrevisao(i: PrevisaoItem): string {
-  if (i.status === 'sem_historico') return 'Sem histórico — revisar';
-  if (i.km_restante !== null && i.km_restante <= 0) {
-    return i.km_restante === 0 ? 'Vencido agora' : `Vencido há ${formatarKm(-i.km_restante)}`;
-  }
-  if (i.km_restante !== null) {
-    const faltam = `Faltam ${formatarKm(i.km_restante)}`;
-    return i.data_prevista ? `${faltam} · previsto para ${formatarData(i.data_prevista)}` : faltam;
-  }
-  if (i.data_prevista) {
-    return i.status === 'vencido'
-      ? `Vencido desde ${formatarData(i.data_prevista)}`
-      : `Previsto para ${formatarData(i.data_prevista)}`;
-  }
-  return 'Sem previsão';
-}
 
 function LinhaPrevisao({ item }: { item: PrevisaoItem }) {
   return (
