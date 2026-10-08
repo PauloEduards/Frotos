@@ -20,11 +20,11 @@ begin
   -- ---------- Usuários (login por e-mail e senha no GoTrue local) ----------
   for u in
     select * from (values
-      (v_dono,  'dono@frotos.dev',  'Carlos', 'proprietario'),
-      (v_ana,   'ana@frotos.dev',   'Ana',    'motorista'),
-      (v_bruno, 'bruno@frotos.dev', 'Bruno',  'motorista'),
-      (v_caio,  'caio@frotos.dev',  'Caio',   'motorista')
-    ) t (id, email, nome, papel)
+      (v_dono,  'dono@frotos.dev',  'Carlos', 'proprietario', null),
+      (v_ana,   'ana@frotos.dev',   'Ana',    'motorista', '52998224725'),
+      (v_bruno, 'bruno@frotos.dev', 'Bruno',  'motorista', '11144477735'),
+      (v_caio,  'caio@frotos.dev',  'Caio',   'motorista', '39053344705')
+    ) t (id, email, nome, papel, cpf)
   loop
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -35,7 +35,9 @@ begin
       '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated', u.email,
       crypt('senha123', gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      jsonb_build_object('nome', u.nome, 'papel', u.papel, 'email_verified', true),
+      jsonb_build_object('nome', u.nome, 'papel', u.papel, 'email_verified', true)
+        || case when u.cpf is null then '{}'::jsonb
+                else jsonb_build_object('cpf', u.cpf, 'tem_cnh', true, 'uf', 'SP', 'cidade', 'São Paulo') end,
       now(), now(), '', '', '', '', '', '', '', ''
     );
 
@@ -48,8 +50,8 @@ begin
   end loop;
 
   -- ---------- Frota e membros ----------
-  insert into public.fleets (owner_id, nome, codigo_convite)
-  values (v_dono, 'Frota Piloto', 'FRT-TEST')
+  insert into public.fleets (owner_id, nome, codigo_convite, uf, cidade)
+  values (v_dono, 'Frota Piloto', 'FRT-TEST', 'SP', 'São Paulo')
   returning id into v_frota;
 
   insert into public.fleet_members (fleet_id, driver_id, status, nivel_manutencao) values

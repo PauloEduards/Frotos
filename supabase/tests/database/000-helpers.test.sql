@@ -3,7 +3,27 @@
 create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
+-- Gera um CPF aleatório com dígitos verificadores válidos (só dígitos).
+create or replace function tests.cpf_aleatorio()
+returns text
+language plpgsql
+as $$
+declare
+  d int[] := array[]::int[];
+  s int;
+  i int;
+begin
+  for i in 1..9 loop d := d || (floor(random() * 10))::int; end loop;
+  s := 0; for i in 1..9 loop s := s + d[i] * (11 - i); end loop;
+  d := d || (case when (s * 10) % 11 = 10 then 0 else (s * 10) % 11 end);
+  s := 0; for i in 1..10 loop s := s + d[i] * (12 - i); end loop;
+  d := d || (case when (s * 10) % 11 = 10 then 0 else (s * 10) % 11 end);
+  return array_to_string(d, '');
+end;
+$$;
+
 -- Cria um usuário em auth.users. Se p_papel for null, a chave "papel" fica de fora.
+-- Motoristas recebem um CPF válido aleatório (obrigatório desde o bloco 1) e tem_cnh = true.
 create or replace function tests.criar_usuario(p_email text, p_papel text, p_nome text default 'Teste')
 returns uuid
 language plpgsql
@@ -14,6 +34,9 @@ declare
 begin
   if p_papel is not null then
     v_meta := v_meta || jsonb_build_object('papel', p_papel);
+  end if;
+  if p_papel = 'motorista' then
+    v_meta := v_meta || jsonb_build_object('cpf', tests.cpf_aleatorio(), 'tem_cnh', true);
   end if;
 
   insert into auth.users (id, email, aud, role, raw_user_meta_data)

@@ -91,14 +91,14 @@ isOneToOne: false
                   ]
                 },"fleets": {
                   Row: {
-                    "codigo_convite": string,"criada_em": string,"id": string,"limiar_amarelo_dias": number,"limiar_amarelo_km": number,"limiar_laranja_km": number,"limite_salto_km_dia": number,"modo_manutencao": Database["public"]['Enums']["modo_manutencao"],"nome": string,"owner_id": string
+                    "cidade": string | null,"codigo_convite": string,"criada_em": string,"id": string,"limiar_amarelo_dias": number,"limiar_amarelo_km": number,"limiar_laranja_km": number,"limite_salto_km_dia": number,"modo_manutencao": Database["public"]['Enums']["modo_manutencao"],"nome": string,"owner_id": string,"uf": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "codigo_convite": string,"criada_em"?: string,"id"?: string,"limiar_amarelo_dias"?: number,"limiar_amarelo_km"?: number,"limiar_laranja_km"?: number,"limite_salto_km_dia"?: number,"modo_manutencao"?: Database["public"]['Enums']["modo_manutencao"],"nome": string,"owner_id": string
+                    "cidade"?: string | null,"codigo_convite": string,"criada_em"?: string,"id"?: string,"limiar_amarelo_dias"?: number,"limiar_amarelo_km"?: number,"limiar_laranja_km"?: number,"limite_salto_km_dia"?: number,"modo_manutencao"?: Database["public"]['Enums']["modo_manutencao"],"nome": string,"owner_id": string,"uf"?: string | null
                   }
                   Update: {
-                    "codigo_convite"?: string,"criada_em"?: string,"id"?: string,"limiar_amarelo_dias"?: number,"limiar_amarelo_km"?: number,"limiar_laranja_km"?: number,"limite_salto_km_dia"?: number,"modo_manutencao"?: Database["public"]['Enums']["modo_manutencao"],"nome"?: string,"owner_id"?: string
+                    "cidade"?: string | null,"codigo_convite"?: string,"criada_em"?: string,"id"?: string,"limiar_amarelo_dias"?: number,"limiar_amarelo_km"?: number,"limiar_laranja_km"?: number,"limite_salto_km_dia"?: number,"modo_manutencao"?: Database["public"]['Enums']["modo_manutencao"],"nome"?: string,"owner_id"?: string,"uf"?: string | null
                   }
                   Relationships: [
                     {
@@ -327,14 +327,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "criado_em": string,"expo_push_token": string | null,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"telefone": string | null
+                    "cidade": string | null,"cpf": string | null,"criado_em": string,"expo_push_token": string | null,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"telefone": string | null,"tem_cnh": boolean,"uf": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "criado_em"?: string,"expo_push_token"?: string | null,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"telefone"?: string | null
+                    "cidade"?: string | null,"cpf"?: string | null,"criado_em"?: string,"expo_push_token"?: string | null,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"telefone"?: string | null,"tem_cnh"?: boolean,"uf"?: string | null
                   }
                   Update: {
-                    "criado_em"?: string,"expo_push_token"?: string | null,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"telefone"?: string | null
+                    "cidade"?: string | null,"cpf"?: string | null,"criado_em"?: string,"expo_push_token"?: string | null,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"telefone"?: string | null,"tem_cnh"?: boolean,"uf"?: string | null
                   }
                   Relationships: [
                     
@@ -446,9 +446,13 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"cpf_valido":
+{ Args: { "p": string }; Returns: boolean
+                           },
 "criar_frota":
 { Args: { "p_nome": string }; Returns: {
-              "codigo_convite": string,
+              "cidade": string | null,
+"codigo_convite": string,
 "criada_em": string,
 "id": string,
 "limiar_amarelo_dias": number,
@@ -457,7 +461,8 @@ isOneToOne: false
 "limite_salto_km_dia": number,
 "modo_manutencao": Database["public"]['Enums']["modo_manutencao"],
 "nome": string,
-"owner_id": string
+"owner_id": string,
+"uf": string | null
             }
                           SetofOptions: {
         from: "*"
@@ -605,6 +610,9 @@ isOneToOne: false
 { Args: { "p_hoje": string,"p_vehicle_id": string }; Returns: {
               "estimada": boolean,"media": number
             }[]
+                           },
+"normalizar_cidade":
+{ Args: { "p": string }; Returns: string
                            },
 "notificar":
 { Args: { "p_corpo": string,"p_prioridade"?: string,"p_ref_id"?: string,"p_ref_tabela"?: string,"p_tipo": string,"p_titulo": string,"p_user_id": string }; Returns: undefined
