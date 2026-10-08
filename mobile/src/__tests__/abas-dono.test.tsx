@@ -20,7 +20,7 @@ jest.mock('expo-router', () => {
 jest.mock('@/api/avisos', () => ({ contarNaoLidos: jest.fn() }));
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/pendencias', () => ({ contarPendencias: jest.fn() }));
-jest.mock('@/api/candidaturas', () => ({ contarPedidosMotoristas: jest.fn() }));
+jest.mock('@/api/candidaturas', () => ({ contarPedidosMotoristas: jest.fn().mockResolvedValue(0) }));
 
 const frotaMock = minhaFrota as jest.Mock;
 const contarMock = contarPendencias as jest.Mock;
