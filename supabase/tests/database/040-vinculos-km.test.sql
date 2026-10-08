@@ -16,7 +16,7 @@ select tests.entrar_como(:'ma');
 select id as a1, status::text as st1 from public.iniciar_retirada(:'c1', 10000) \gset
 select is(:'st1'::text, 'aguardando_fotos', '1 retirada inicia aguardando_fotos');
 select is((select em_uso from public.vehicles where id = :'c1'), true, '1 carro em uso');
-select is((select count(*)::int from public.odometer_readings where vehicle_id = :'c1' and origem = 'retirada'), 1, '1 leitura retirada');
+select is((select count(*)::int from public.odometer_readings where vehicle_id = :'c1' and origem = 'retirada'), 0, '1 leitura da retirada só nasce ao concluir (bloco 1)');
 
 -- 2
 select tests.sair();
@@ -44,7 +44,7 @@ select tests.entrar_como(:'ma');
 select throws_ok(format($$select public.concluir_retirada(%L)$$, :'a1'), 'P0001', 'FOTOS_FALTANDO', '5 sem fotos');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a1', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select is((select status::text from public.concluir_retirada(:'a1')), 'ativo', '5 com fotos fica ativo');
 
 -- 6
@@ -91,7 +91,7 @@ select is((select count(*)::int from public.vehicle_items where vehicle_id = :'c
 select throws_ok(format($$select public.devolver_carro(%L, 9300)$$, :'a1'), 'P0001', 'FOTOS_FALTANDO', '14 devolução sem fotos');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a1', 'devolucao', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select is((select status::text from public.devolver_carro(:'a1', 9300)), 'encerrado', '14 devolvido');
 select tests.sair();
 select ok((select fim_em is not null and km_fim = 9300 from public.assignments where id = :'a1'), '14 fim_em e km_fim');
@@ -107,7 +107,7 @@ select tests.entrar_como(:'ma');
 select id as a3 from public.iniciar_retirada(:'c1', 9300) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a3', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a3');
 select throws_ok(format($$select public.cancelar_retirada(%L)$$, :'a3'), 'P0001', 'TRANSICAO_INVALIDA', '15 vínculo ativo não cancela');
 

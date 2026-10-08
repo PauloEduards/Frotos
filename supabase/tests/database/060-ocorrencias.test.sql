@@ -41,10 +41,10 @@ select throws_ok(format($$select public.relatar_ocorrencia(%L, 'outro', '   ')$$
 
 -- 4 fotos
 select tests.criar_foto(:'f', :'c1', 'ocorrencias') as foto1 \gset
-select tests.criar_foto(:'f', :'c1', 'ocorrencias') as foto2 \gset
 select lives_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, %L, now())$$, :'i1', :'foto1'), '4 foto na própria');
 select tests.sair();
 select tests.entrar_como(:'mb');
+select tests.criar_foto(:'f', :'c1', 'ocorrencias') as foto2 \gset
 select throws_ok(format($$insert into public.incident_photos (incident_id, path, capturado_em) values (%L, %L, now())$$, :'i1', :'foto2'), '42501', null, '4b foto na de outro');
 
 -- 5 resolver

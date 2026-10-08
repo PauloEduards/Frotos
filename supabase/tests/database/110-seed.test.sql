@@ -72,7 +72,9 @@ select is(
      join public.fleets f on f.id = v.fleet_id and f.codigo_convite = 'FRT-TEST'
      where r.nota_foto_path is not null
    ) x (path, fleet_id, vehicle_id)
-   where not public.foto_valida(x.path, x.fleet_id, x.vehicle_id)),
+   where not exists (select 1 from storage.objects o
+                     where o.bucket_id = 'fotos' and o.name = x.path
+                       and starts_with(x.path, x.fleet_id::text || '/' || x.vehicle_id::text || '/'))),
   0, 'todas as fotos do seed existem no storage');
 
 -- 6 login

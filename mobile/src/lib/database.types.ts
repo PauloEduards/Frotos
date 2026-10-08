@@ -606,6 +606,22 @@ isOneToOne: false
 "fmt_km":
 { Args: { "p_km": number }; Returns: string
                            },
+"foto_painel_do_momento":
+{ Args: { "p_assignment_id": string,"p_momento": Database["public"]['Enums']["momento_foto"] }; Returns: {
+              "assignment_id": string,
+"capturado_em": string,
+"id": string,
+"momento": Database["public"]['Enums']["momento_foto"],
+"path": string,
+"posicao": Database["public"]['Enums']["posicao_foto"],
+"recebido_em": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "inspection_photos"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "foto_valida":
 { Args: { "p_fleet_id": string,"p_path": string,"p_vehicle_id": string }; Returns: boolean
                            },
@@ -678,8 +694,29 @@ isOneToOne: false
 "recalcular_ultima_troca":
 { Args: { "p_item_id": string }; Returns: undefined
                            },
+"registrar_fotos_inspecao":
+{ Args: { "p_assignment_id": string,"p_fotos": Json,"p_momento": Database["public"]['Enums']["momento_foto"] }; Returns: number
+                           },
 "registrar_km":
 { Args: { "p_capturado_em"?: string,"p_foto_painel_path"?: string,"p_km": number,"p_origem"?: Database["public"]['Enums']["origem_km"],"p_vehicle_id": string }; Returns: {
+              "autor_id": string,
+"capturado_em": string,
+"foto_painel_path": string | null,
+"id": string,
+"km": number,
+"origem": Database["public"]['Enums']["origem_km"],
+"recebido_em": string,
+"salto_suspeito": boolean,
+"vehicle_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "odometer_readings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"registrar_km_interno":
+{ Args: { "p_capturado_em": string,"p_foto_painel_path": string,"p_km": number,"p_origem": Database["public"]['Enums']["origem_km"],"p_validar_foto": boolean,"p_vehicle_id": string }; Returns: {
               "autor_id": string,
 "capturado_em": string,
 "foto_painel_path": string | null,
@@ -832,7 +869,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "modo_manutencao": "proprietario_leva"|"motoristas_levam","momento_foto": "retirada"|"devolucao","nivel_manutencao": "sem_permissao"|"com_aprovacao"|"confiavel","origem_km": "retirada"|"devolucao"|"atualizacao"|"manutencao"|"correcao_dono","papel_usuario": "proprietario"|"motorista","posicao_foto": "frente"|"traseira"|"lateral_esq"|"lateral_dir"|"extra","status_item": "sem_historico"|"vencido"|"urgente"|"proximo"|"em_dia","status_membro": "pendente"|"ativo"|"removido","status_ocorrencia": "aberta"|"resolvida","status_pedido": "aberto"|"concluido"|"cancelado","status_servico": "pendente"|"aprovado"|"recusado"|"contestado","status_vinculo": "aguardando_fotos"|"ativo"|"encerrado","tipo_ocorrencia": "mecanico"|"acidente_leve"|"acidente_grave"|"outro","visibilidade_carro": "todos"|"alguns"|"um"
+            "modo_manutencao": "proprietario_leva"|"motoristas_levam","momento_foto": "retirada"|"devolucao","nivel_manutencao": "sem_permissao"|"com_aprovacao"|"confiavel","origem_km": "retirada"|"devolucao"|"atualizacao"|"manutencao"|"correcao_dono","papel_usuario": "proprietario"|"motorista","posicao_foto": "frente"|"traseira"|"lateral_esq"|"lateral_dir"|"extra"|"painel","status_item": "sem_historico"|"vencido"|"urgente"|"proximo"|"em_dia","status_membro": "pendente"|"ativo"|"removido","status_ocorrencia": "aberta"|"resolvida","status_pedido": "aberto"|"concluido"|"cancelado","status_servico": "pendente"|"aprovado"|"recusado"|"contestado","status_vinculo": "aguardando_fotos"|"ativo"|"encerrado","tipo_ocorrencia": "mecanico"|"acidente_leve"|"acidente_grave"|"outro","visibilidade_carro": "todos"|"alguns"|"um"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -952,7 +989,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "modo_manutencao": ["proprietario_leva", "motoristas_levam"],"momento_foto": ["retirada", "devolucao"],"nivel_manutencao": ["sem_permissao", "com_aprovacao", "confiavel"],"origem_km": ["retirada", "devolucao", "atualizacao", "manutencao", "correcao_dono"],"papel_usuario": ["proprietario", "motorista"],"posicao_foto": ["frente", "traseira", "lateral_esq", "lateral_dir", "extra"],"status_item": ["sem_historico", "vencido", "urgente", "proximo", "em_dia"],"status_membro": ["pendente", "ativo", "removido"],"status_ocorrencia": ["aberta", "resolvida"],"status_pedido": ["aberto", "concluido", "cancelado"],"status_servico": ["pendente", "aprovado", "recusado", "contestado"],"status_vinculo": ["aguardando_fotos", "ativo", "encerrado"],"tipo_ocorrencia": ["mecanico", "acidente_leve", "acidente_grave", "outro"],"visibilidade_carro": ["todos", "alguns", "um"]
+            "modo_manutencao": ["proprietario_leva", "motoristas_levam"],"momento_foto": ["retirada", "devolucao"],"nivel_manutencao": ["sem_permissao", "com_aprovacao", "confiavel"],"origem_km": ["retirada", "devolucao", "atualizacao", "manutencao", "correcao_dono"],"papel_usuario": ["proprietario", "motorista"],"posicao_foto": ["frente", "traseira", "lateral_esq", "lateral_dir", "extra", "painel"],"status_item": ["sem_historico", "vencido", "urgente", "proximo", "em_dia"],"status_membro": ["pendente", "ativo", "removido"],"status_ocorrencia": ["aberta", "resolvida"],"status_pedido": ["aberto", "concluido", "cancelado"],"status_servico": ["pendente", "aprovado", "recusado", "contestado"],"status_vinculo": ["aguardando_fotos", "ativo", "encerrado"],"tipo_ocorrencia": ["mecanico", "acidente_leve", "acidente_grave", "outro"],"visibilidade_carro": ["todos", "alguns", "um"]
           }
         }
 } as const

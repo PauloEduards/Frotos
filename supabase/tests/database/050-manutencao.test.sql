@@ -25,7 +25,7 @@ select tests.entrar_como(:'ma');
 select id as a1 from public.iniciar_retirada(:'c1', 10000) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a1', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a1');
 select tests.sair();
 
@@ -327,7 +327,7 @@ select tests.sair();
 select tests.entrar_como(:'ma');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a1', 'devolucao', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select public.devolver_carro(:'a1', 12100);
 select tests.sair();
 select is((select status::text from public.maintenance_requests where id = :'ped3'), 'cancelado', '16 devolver cancela pedido');
@@ -339,7 +339,7 @@ select tests.entrar_como(:'ma');
 select id as a2 from public.iniciar_retirada(:'c1', 12100) \gset
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a2', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select public.concluir_retirada(:'a2');
 select tests.sair();
 select tests.entrar_como(:'dono');

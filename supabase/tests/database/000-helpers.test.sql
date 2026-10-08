@@ -80,7 +80,7 @@ as $$
 declare
   v_path text := p_fleet::text || '/' || p_vehicle::text || '/' || p_categoria || '/' || gen_random_uuid()::text || '.jpg';
 begin
-  insert into storage.objects (bucket_id, name) values ('fotos', v_path);
+  insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, auth.uid()::text);
   return v_path;
 end;
 $$;

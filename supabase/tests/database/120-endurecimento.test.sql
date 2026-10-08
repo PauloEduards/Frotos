@@ -31,7 +31,7 @@ select throws_ok(format($$insert into public.inspection_photos (assignment_id, m
   'P0001', 'FOTO_INVALIDA', '1 inspeção: objeto existe mas é de outro carro');
 insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
 select :'a1', 'retirada', p, tests.criar_foto(:'f', :'c1', 'inspecao'), now()
-from unnest(array['frente','traseira','lateral_esq','lateral_dir']::public.posicao_foto[]) p;
+from unnest(array['frente','traseira','lateral_esq','lateral_dir','painel']::public.posicao_foto[]) p;
 select is((select status::text from public.concluir_retirada(:'a1')), 'ativo', '1 inspeção com fotos reais conclui');
 
 -- registrar_km: foto do painel inexistente

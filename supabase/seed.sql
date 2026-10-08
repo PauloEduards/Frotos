@@ -106,7 +106,7 @@ begin
   for v in
     select * from (values (v_vinc_ana, v_onix, v_ana), (v_vinc_bruno, v_hb20, v_bruno)) t (vinculo, carro, motorista)
   loop
-    foreach p in array array['frente', 'traseira', 'lateral_esq', 'lateral_dir'] loop
+    foreach p in array array['frente', 'traseira', 'lateral_esq', 'lateral_dir', 'painel'] loop
       v_path := v_frota || '/' || v.carro || '/inspecao/' || v.vinculo || '-retirada-' || p || '.jpg';
       insert into storage.objects (bucket_id, name, owner_id) values ('fotos', v_path, v.motorista::text);
       insert into public.inspection_photos (assignment_id, momento, posicao, path, capturado_em)
