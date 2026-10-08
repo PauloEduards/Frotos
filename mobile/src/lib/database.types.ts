@@ -735,6 +735,16 @@ isOneToOne: false
               "estimada": boolean,"media": number
             }[]
                            },
+"meus_pedidos_entrada":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "frota_nome": string,"id": string,"status": string
+            }[]
+                           },
+"minhas_candidaturas":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "ano_modelo": number,"cidade": string,"cor": string,"criada_em": string,"foto_path": string,"frota_nome": string,"id": string,"marca": string,"modelo": string,"status": string,"uf": string,"vehicle_id": string
+            }[]
+                           },
 "normalizar_cidade":
 { Args: { "p": string }; Returns: string
                            },
