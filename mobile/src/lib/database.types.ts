@@ -841,7 +841,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "relatar_ocorrencia":
-{ Args: { "p_descricao": string,"p_tipo": Database["public"]['Enums']["tipo_ocorrencia"],"p_vehicle_id": string }; Returns: {
+{ Args: { "p_descricao": string,"p_fotos"?: Json,"p_id"?: string,"p_tipo": Database["public"]['Enums']["tipo_ocorrencia"],"p_vehicle_id": string }; Returns: {
               "criada_em": string,
 "descricao": string,
 "driver_id": string,
