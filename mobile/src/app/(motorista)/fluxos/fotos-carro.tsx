@@ -11,7 +11,7 @@ import { mensagemErro } from '@/lib/erros';
 import { cores, espaco } from '@/lib/tema';
 import { novoCaminho } from '@/lib/upload';
 
-type Params = { momento: 'retirada' | 'devolucao'; carro: string; frota: string; vinculo?: string };
+type Params = { momento: 'retirada' | 'devolucao'; carro: string; frota: string; vinculo?: string; km?: string };
 
 function erroDeRede(e: unknown): boolean {
   return e instanceof TypeError || /Network request failed|Failed to fetch/i.test(String((e as Error)?.message ?? ''));
@@ -19,7 +19,7 @@ function erroDeRede(e: unknown): boolean {
 
 /** Retirada ou devolução guiada. As fotos vão pela fila offline; a retirada precisa de internet só para começar. */
 export default function FotosCarro() {
-  const { momento, carro, frota, vinculo } = useLocalSearchParams<Params>();
+  const { momento, carro, frota, vinculo, km: kmAtual } = useLocalSearchParams<Params>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { enviarAgora } = useFila();
@@ -82,7 +82,13 @@ export default function FotosCarro() {
 
   return (
     <ScrollView style={estilos.fundo} contentContainerStyle={estilos.conteudo}>
-      <SequenciaFotos momento={momento} onConcluir={(f, km) => void aoConcluir(f, km)} enviando={enviando} erro={erro} />
+      <SequenciaFotos
+        momento={momento}
+        onConcluir={(f, km) => void aoConcluir(f, km)}
+        enviando={enviando}
+        erro={erro}
+        kmMinimo={kmAtual ? Number(kmAtual) : undefined}
+      />
     </ScrollView>
   );
 }

@@ -1,7 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 
 import { supabase } from './cliente';
-import { comoErroApp } from './erros';
 
 export type Bucket = 'fotos' | 'carros';
 export type CategoriaFoto = 'inspecao' | 'painel' | 'nota' | 'ocorrencia';
@@ -22,5 +21,6 @@ export async function enviarFoto(bucket: Bucket, path: string, uri: string): Pro
   if (!error) return;
   const status = String((error as { statusCode?: string | number }).statusCode ?? '');
   if (status === '409' || /already exists/i.test(error.message)) return;
-  throw comoErroApp(error);
+  // Erro cru (com statusCode): a fila separa falha temporária (5xx, rede) de recusa (403...).
+  throw error;
 }

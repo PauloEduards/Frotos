@@ -68,3 +68,15 @@ it('depois do painel pede o km e entrega as 5 fotos na ordem', async () => {
   ]);
   expect(fotos[4].uri).toBe('file://f5.jpg');
 });
+
+it('km menor que o atual do carro é recusado no celular', async () => {
+  const concluir = jest.fn();
+  await render(<SequenciaFotos momento="devolucao" kmMinimo={45200} onConcluir={concluir} />);
+  for (let i = 0; i < 4; i++) await tirarEAvancar();
+  await fireEvent.press(screen.getByLabelText(/^Tirar foto/));
+  await screen.findByText('Refazer foto');
+  await fireEvent.changeText(screen.getByLabelText('Km do painel'), '45100');
+  await fireEvent.press(screen.getByText('Concluir'));
+  expect(screen.getByText('O km não pode ser menor que o atual do carro (45.200 km).')).toBeTruthy();
+  expect(concluir).not.toHaveBeenCalled();
+});

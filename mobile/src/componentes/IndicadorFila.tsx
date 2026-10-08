@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { ItemFila, TipoItemFila } from '@/fila/fila';
 import { cores, espaco } from '@/lib/tema';
 
 import { Botao } from './Botao';
+import { Campo } from './Campo';
 
 const NOME: Record<TipoItemFila, string> = {
   retirada: 'Retirada',
@@ -15,16 +17,21 @@ const NOME: Record<TipoItemFila, string> = {
   foto_carro: 'Foto do carro',
 };
 
+/** A partir de quantas tentativas sem conexão o usuário pode desistir de um envio. */
+export const TENTATIVAS_PARA_DESCARTAR = 5;
+
 type Props = {
   itens: ItemFila[];
   pendentes: number;
   onTentarDeNovo: (id: string) => void;
   onDescartar: (id: string) => void;
+  onCorrigirKm?: (id: string, km: number) => void;
 };
 
-/** "N envios pendentes" e, para cada item parado por erro de negócio, a mensagem com as ações. */
-export function IndicadorFila({ itens, pendentes, onTentarDeNovo, onDescartar }: Props) {
+/** "N envios pendentes" e, para cada item parado, a mensagem com as ações (corrigir km, tentar, descartar). */
+export function IndicadorFila({ itens, pendentes, onTentarDeNovo, onDescartar, onCorrigirKm }: Props) {
   const parados = itens.filter((i) => i.erro?.negocio);
+  const travados = itens.filter((i) => !i.erro?.negocio && i.tentativas >= TENTATIVAS_PARA_DESCARTAR);
   if (pendentes === 0 && parados.length === 0) return null;
 
   return (
@@ -38,15 +45,47 @@ export function IndicadorFila({ itens, pendentes, onTentarDeNovo, onDescartar }:
         </View>
       ) : null}
       {parados.map((i) => (
+        <ItemParado key={i.id} item={i} onTentarDeNovo={onTentarDeNovo} onDescartar={onDescartar} onCorrigirKm={onCorrigirKm} />
+      ))}
+      {travados.map((i) => (
         <View key={i.id} style={estilos.parado}>
-          <Text style={estilos.titulo}>{`Não enviado: ${NOME[i.tipo]}`}</Text>
+          <Text style={estilos.titulo}>{`Não está conseguindo enviar: ${NOME[i.tipo]}`}</Text>
           <Text style={estilos.erro}>{i.erro?.mensagem}</Text>
-          <View style={estilos.botoes}>
-            <Botao titulo="Tentar de novo" variante="secundario" onPress={() => onTentarDeNovo(i.id)} />
-            <Botao titulo="Descartar" variante="perigo" onPress={() => onDescartar(i.id)} />
-          </View>
+          <Botao titulo="Descartar" variante="perigo" onPress={() => onDescartar(i.id)} />
         </View>
       ))}
+    </View>
+  );
+}
+
+function ItemParado({
+  item: i,
+  onTentarDeNovo,
+  onDescartar,
+  onCorrigirKm,
+}: { item: ItemFila } & Pick<Props, 'onTentarDeNovo' | 'onDescartar' | 'onCorrigirKm'>) {
+  const [km, setKm] = useState('');
+  const temKm = !!onCorrigirKm && i.acoes.some((a) => 'p_km' in a.args);
+  const numero = /^\d+$/.test(km.trim()) ? Number(km.trim()) : null;
+  return (
+    <View style={estilos.parado}>
+      <Text style={estilos.titulo}>{`Não enviado: ${NOME[i.tipo]}`}</Text>
+      <Text style={estilos.erro}>{i.erro?.mensagem}</Text>
+      {temKm ? (
+        <>
+          <Campo rotulo="Km correto" tipo="numero" valor={km} onChange={setKm} />
+          <Botao
+            titulo="Enviar com este km"
+            onPress={() => {
+              if (numero !== null) onCorrigirKm?.(i.id, numero);
+            }}
+          />
+        </>
+      ) : null}
+      <View style={estilos.botoes}>
+        <Botao titulo="Tentar de novo" variante="secundario" onPress={() => onTentarDeNovo(i.id)} />
+        <Botao titulo="Descartar" variante="perigo" onPress={() => onDescartar(i.id)} />
+      </View>
     </View>
   );
 }

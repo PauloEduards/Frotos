@@ -5,7 +5,7 @@ import { supabase } from '@/lib/cliente';
 import { enviarFoto } from '@/lib/upload';
 
 import { aoMudarFila, descartar as descartarItem, listar, type ItemFila } from './fila';
-import { liberarItem, processarFila, type DepsFila } from './processar';
+import { corrigirKm, liberarItem, processarFila, type DepsFila } from './processar';
 
 const depsPadrao: DepsFila = {
   enviarFoto,
@@ -54,6 +54,10 @@ export function useFila(deps: DepsFila = depsPadrao) {
     enviarAgora,
     tentarDeNovo: async (id: string) => {
       await liberarItem(id);
+      await enviarAgora();
+    },
+    corrigirKm: async (id: string, km: number) => {
+      await corrigirKm(id, km);
       await enviarAgora();
     },
     descartar: async (id: string) => {

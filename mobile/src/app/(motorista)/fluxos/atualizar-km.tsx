@@ -8,11 +8,12 @@ import { CampoFoto } from '@/componentes/CampoFoto';
 import { adicionar } from '@/fila/fila';
 import { useFila } from '@/fila/useFila';
 import type { FotoCapturada } from '@/lib/camera';
+import { formatarKm } from '@/lib/formatos';
 import { cores, espaco } from '@/lib/tema';
 import { novoCaminho } from '@/lib/upload';
 
 export default function AtualizarKm() {
-  const { carro, frota } = useLocalSearchParams<{ carro: string; frota: string }>();
+  const { carro, frota, km: kmAtual } = useLocalSearchParams<{ carro: string; frota: string; km?: string }>();
   const router = useRouter();
   const { enviarAgora } = useFila();
   const [foto, setFoto] = useState<FotoCapturada | null>(null);
@@ -24,8 +25,16 @@ export default function AtualizarKm() {
   async function enviar() {
     const numero = /^\d+$/.test(km.trim()) ? Number(km.trim()) : null;
     setErroFoto(foto ? undefined : 'Tire a foto do painel.');
-    setErroKm(numero === null ? 'Informe o km.' : undefined);
-    if (!foto || numero === null) return;
+    const minimo = kmAtual ? Number(kmAtual) : undefined;
+    const menor = numero !== null && minimo !== undefined && numero < minimo;
+    setErroKm(
+      numero === null
+        ? 'Informe o km.'
+        : menor
+          ? `O km não pode ser menor que o atual do carro (${formatarKm(minimo as number)}).`
+          : undefined,
+    );
+    if (!foto || numero === null || menor) return;
     setEnviando(true);
     try {
       const path = novoCaminho(frota, carro, 'painel');

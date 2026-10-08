@@ -69,6 +69,7 @@ export default function MeuCarro() {
         pendentes={fila.pendentes}
         onTentarDeNovo={(id) => void fila.tentarDeNovo(id)}
         onDescartar={(id) => void fila.descartar(id)}
+        onCorrigirKm={(id, km) => void fila.corrigirKm(id, km)}
       />
 
       {!vinculo && !reservado ? (
@@ -111,7 +112,16 @@ export default function MeuCarro() {
         </>
       ) : null}
 
-      {vinculo && carro && vinculo.status === 'ativo' ? (
+      {vinculo && carro && vinculo.status === 'ativo' && itemFila?.tipo === 'devolucao' ? (
+        <>
+          <CardCarro tamanhoPlaca="grande" carro={{ ...carro, fotoUrl }} />
+          <Text style={estilos.enviando}>
+            {`Enviando devolução… ${itemFila.fotos.filter((f) => f.enviada).length}/${itemFila.fotos.length}`}
+          </Text>
+        </>
+      ) : null}
+
+      {vinculo && carro && vinculo.status === 'ativo' && itemFila?.tipo !== 'devolucao' ? (
         <ComOCarro carro={carro} vinculoId={vinculo.id} fotoUrl={fotoUrl} rota={rota} />
       ) : null}
     </ScrollView>
@@ -143,7 +153,11 @@ function ComOCarro({
       <CardCarro tamanhoPlaca="grande" carro={{ ...carro, fotoUrl }} rodape={<Text style={estilos.apoio}>{`Km atual: ${formatarKm(carro.km_atual)}`}</Text>} />
 
       <View style={estilos.botoes}>
-        <BotaoGrande icone="speedometer" titulo="Atualizar km" onPress={() => router.push(rota('atualizar-km', carro))} />
+        <BotaoGrande
+          icone="speedometer"
+          titulo="Atualizar km"
+          onPress={() => router.push(rota('atualizar-km', carro, `&km=${carro.km_atual}`))}
+        />
         <BotaoGrande icone="warning" titulo="Relatar ocorrência" onPress={() => router.push(rota('ocorrencia', carro))} />
         {podeRegistrar ? (
           <BotaoGrande
@@ -156,7 +170,9 @@ function ComOCarro({
           icone="key"
           titulo="Devolver carro"
           onPress={() =>
-            router.push(`/(motorista)/fluxos/fotos-carro?momento=devolucao&carro=${carro.vehicle_id}&frota=${carro.fleet_id}&vinculo=${vinculoId}`)
+            router.push(
+              `/(motorista)/fluxos/fotos-carro?momento=devolucao&carro=${carro.vehicle_id}&frota=${carro.fleet_id}&vinculo=${vinculoId}&km=${carro.km_atual}`,
+            )
           }
         />
       </View>

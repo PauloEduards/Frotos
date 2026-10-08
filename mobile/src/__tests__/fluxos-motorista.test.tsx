@@ -84,6 +84,17 @@ describe('atualizar km', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
+  it('km menor que o atual é recusado no celular', async () => {
+    mockParams = { carro: 'v1', frota: 'f1', km: '45200' };
+    await renderComCliente(<AtualizarKm />);
+    await fireEvent.press(screen.getByLabelText('Tirar foto do painel'));
+    await screen.findByText('Refazer foto');
+    await fireEvent.changeText(screen.getByLabelText('Km do painel'), '45000');
+    await fireEvent.press(screen.getByText('Enviar'));
+    expect(screen.getByText('O km não pode ser menor que o atual do carro (45.200 km).')).toBeTruthy();
+    expect(adicionarMock).not.toHaveBeenCalled();
+  });
+
   it('sem foto ou sem km não envia', async () => {
     mockParams = { carro: 'v1', frota: 'f1' };
     await renderComCliente(<AtualizarKm />);
@@ -139,7 +150,7 @@ describe('registrar serviço', () => {
     await waitFor(() => expect(adicionarMock).toHaveBeenCalled());
     const item = adicionarMock.mock.calls[0][0];
     expect(item.tipo).toBe('servico');
-    expect(item.acoes[0].rpc).toBe('registrar_servico');
+    expect(item.acoes[0].rpc).toBe('registrar_servico_offline');
     expect(item.acoes[0].args).toMatchObject({
       p_vehicle_id: 'v1',
       p_itens: [{ vehicle_item_id: 'i1' }],

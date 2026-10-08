@@ -64,7 +64,7 @@ it('com o carro: campos de foto somem e aparecem manutenções e ações', async
   expect(screen.getByText('Devolver carro')).toBeTruthy();
   expect(screen.queryByText('Registrar serviço')).toBeNull();
   await fireEvent.press(screen.getByText('Devolver carro'));
-  expect(mockPush).toHaveBeenCalledWith('/(motorista)/fluxos/fotos-carro?momento=devolucao&carro=v1&frota=f1&vinculo=a1');
+  expect(mockPush).toHaveBeenCalledWith('/(motorista)/fluxos/fotos-carro?momento=devolucao&carro=v1&frota=f1&vinculo=a1&km=45200');
 });
 
 it('pedido do dono mostra o pedido e libera Registrar serviço', async () => {
@@ -113,8 +113,39 @@ it('Atualizar km e Relatar ocorrência abrem os fluxos', async () => {
   await fireEvent.press(screen.getByText('Relatar ocorrência'));
   await waitFor(() =>
     expect(mockPush.mock.calls.map((c) => c[0])).toEqual([
-      '/(motorista)/fluxos/atualizar-km?carro=v1&frota=f1',
+      '/(motorista)/fluxos/atualizar-km?carro=v1&frota=f1&km=45200',
       '/(motorista)/fluxos/ocorrencia?carro=v1&frota=f1',
     ]),
   );
+});
+
+it('devolução na fila: mostra o envio e esconde as ações do carro', async () => {
+  (meuCarro as jest.Mock).mockResolvedValue({
+    vinculo: { id: 'a1', status: 'ativo', vehicle_id: 'v1' }, carro, reservado: null,
+  });
+  (useFila as jest.Mock).mockReturnValue({
+    ...filaVazia,
+    pendentes: 1,
+    itens: [{
+      id: 'q2', tipo: 'devolucao', criadoEm: 'x', tentativas: 0, erro: null,
+      acoes: [
+        { rpc: 'registrar_fotos_inspecao', args: { p_assignment_id: 'a1' } },
+        { rpc: 'devolver_carro', args: { p_assignment_id: 'a1', p_km: 46000 } },
+      ],
+      fotos: [true, true, true, false, false].map((enviada, i) => ({ uri: 'u', bucket: 'fotos', path: `${i}`, enviada, capturadoEm: 'x' })),
+    }],
+  });
+  await renderComCliente(<MeuCarro />);
+  expect(await screen.findByText('Enviando devolução… 3/5')).toBeTruthy();
+  expect(screen.queryByText('Devolver carro')).toBeNull();
+  expect(screen.queryByText('Atualizar km')).toBeNull();
+});
+
+it('Devolver e Atualizar km levam o km atual para conferir no celular', async () => {
+  (meuCarro as jest.Mock).mockResolvedValue({
+    vinculo: { id: 'a1', status: 'ativo', vehicle_id: 'v1' }, carro, reservado: null,
+  });
+  await renderComCliente(<MeuCarro />);
+  await fireEvent.press(await screen.findByText('Devolver carro'));
+  expect(mockPush).toHaveBeenCalledWith('/(motorista)/fluxos/fotos-carro?momento=devolucao&carro=v1&frota=f1&vinculo=a1&km=45200');
 });

@@ -37,3 +37,37 @@ it('item com erro de negócio mostra a mensagem, Tentar de novo e Descartar', as
   expect(tentar).toHaveBeenCalledWith('i1');
   expect(descartar).toHaveBeenCalledWith('i1');
 });
+
+it('item com km parado: Corrigir km manda o km novo', async () => {
+  const corrigir = jest.fn();
+  await render(
+    <IndicadorFila
+      itens={[item({
+        acoes: [{ rpc: 'devolver_carro', args: { p_assignment_id: 'a1', p_km: 1 } }],
+        erro: { mensagem: 'O km informado (1) é menor que o último registro (45.870).', negocio: true },
+      })]}
+      pendentes={0}
+      onTentarDeNovo={jest.fn()}
+      onDescartar={jest.fn()}
+      onCorrigirKm={corrigir}
+    />,
+  );
+  await fireEvent.changeText(screen.getByLabelText('Km correto'), '45900');
+  await fireEvent.press(screen.getByText('Enviar com este km'));
+  expect(corrigir).toHaveBeenCalledWith('i1', 45900);
+});
+
+it('muitas tentativas sem conexão: oferece descartar', async () => {
+  const descartar = jest.fn();
+  await render(
+    <IndicadorFila
+      itens={[item({ tentativas: 6, erro: { mensagem: 'Sem conexão com a internet. Tente de novo.', negocio: false } })]}
+      pendentes={1}
+      onTentarDeNovo={jest.fn()}
+      onDescartar={descartar}
+    />,
+  );
+  expect(screen.getByText('Não está conseguindo enviar: Atualização de km')).toBeTruthy();
+  await fireEvent.press(screen.getByText('Descartar'));
+  expect(descartar).toHaveBeenCalledWith('i1');
+});

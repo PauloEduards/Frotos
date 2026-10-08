@@ -29,6 +29,20 @@ export type ItemFila = {
 
 const CHAVE = 'frotos:fila:v1';
 const ouvintes = new Set<() => void>();
+let versao = 0;
+// Toda leitura-e-escrita da fila passa por esta cadeia: duas mudanças nunca se cruzam.
+let cadeia: Promise<unknown> = Promise.resolve();
+
+function emSerie<T>(fn: () => Promise<T>): Promise<T> {
+  const proxima = cadeia.then(fn, fn);
+  cadeia = proxima.catch(() => undefined);
+  return proxima;
+}
+
+/** Conta as mudanças na fila (o processador usa para saber se precisa de outra rodada). */
+export function versaoDaFila(): number {
+  return versao;
+}
 
 export function aoMudarFila(ouvinte: () => void): () => void {
   ouvintes.add(ouvinte);
@@ -37,26 +51,33 @@ export function aoMudarFila(ouvinte: () => void): () => void {
   };
 }
 
-export async function listar(): Promise<ItemFila[]> {
+export function listar(): Promise<ItemFila[]> {
+  return emSerie(lerSemFila);
+}
+
+async function lerSemFila(): Promise<ItemFila[]> {
   const bruto = await AsyncStorage.getItem(CHAVE);
   return bruto ? (JSON.parse(bruto) as ItemFila[]) : [];
 }
 
-async function salvar(itens: ItemFila[]): Promise<void> {
-  await AsyncStorage.setItem(CHAVE, JSON.stringify(itens));
-  ouvintes.forEach((o) => o());
+function mudar(fn: (itens: ItemFila[]) => ItemFila[]): Promise<void> {
+  return emSerie(async () => {
+    await AsyncStorage.setItem(CHAVE, JSON.stringify(fn(await lerSemFila())));
+    versao++;
+    ouvintes.forEach((o) => o());
+  });
 }
 
 export async function adicionar(item: Omit<ItemFila, 'id' | 'tentativas' | 'erro'>): Promise<string> {
   const id = randomUUID();
-  await salvar([...(await listar()), { ...item, id, tentativas: 0, erro: null }]);
+  await mudar((itens) => [...itens, { ...item, id, tentativas: 0, erro: null }]);
   return id;
 }
 
-export async function atualizar(id: string, parcial: Partial<ItemFila>): Promise<void> {
-  await salvar((await listar()).map((i) => (i.id === id ? { ...i, ...parcial } : i)));
+export function atualizar(id: string, parcial: Partial<ItemFila>): Promise<void> {
+  return mudar((itens) => itens.map((i) => (i.id === id ? { ...i, ...parcial } : i)));
 }
 
-export async function descartar(id: string): Promise<void> {
-  await salvar((await listar()).filter((i) => i.id !== id));
+export function descartar(id: string): Promise<void> {
+  return mudar((itens) => itens.filter((i) => i.id !== id));
 }

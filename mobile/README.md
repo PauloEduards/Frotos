@@ -47,14 +47,21 @@ O push e a câmera funcionam de verdade só numa build instalada (no Expo Go o p
 1. Instale a ferramenta: `npm i -g eas-cli`
 2. Entre na sua conta Expo (gratuita): `eas login`
 3. Na pasta `mobile`, ligue o projeto: `eas init` (grava o `projectId` no `app.json`)
-4. Credenciais de push do Android (FCM): `eas credentials` e siga o assistente para o Android
-   (ele pede o arquivo `google-services.json` do Firebase; o passo a passo aparece no próprio assistente)
-5. Build para desenvolvimento: `eas build -p android --profile development`
+4. **Endereço do Supabase na build:** o `.env` vai junto com a build (veja `.easignore`). Para o piloto, ele precisa
+   apontar para um endereço que o celular alcance de qualquer lugar: o ideal é um projeto Supabase na nuvem
+   (o IP do PC só funciona na mesma rede Wi-Fi e com o PC ligado).
+5. **Push no Android (Firebase):**
+   1. No [console do Firebase](https://console.firebase.google.com), crie um projeto e adicione um app Android com o
+      pacote `dev.frotos.app`.
+   2. Baixe o `google-services.json` e coloque na pasta `mobile/`.
+   3. No `app.json`, dentro de `"android"`, adicione `"googleServicesFile": "./google-services.json"`.
+   4. Em Configurações do projeto → Contas de serviço, gere uma chave privada (arquivo JSON).
+   5. Rode `eas credentials`, escolha Android → Google Service Account Key for Push Notifications (FCM V1) e envie esse JSON.
+6. Build para desenvolvimento: `eas build -p android --profile development`
    - Instale o APK pelo link que aparece no fim e rode `npx expo start --dev-client`
-6. Build para o piloto (sem o servidor de desenvolvimento): `eas build -p android --profile preview`
+7. Build para o piloto: `eas build -p android --profile preview`
    - Mande o link do APK para o dono e os motoristas instalarem
 
-Para o app da build falar com o Supabase, o `.env` precisa apontar para um endereço acessível pelo celular
-(o IP do PC na mesma rede, ou um projeto Supabase na nuvem para o piloto).
+Sem o passo 5 o app funciona normalmente, mas sem notificações push (os avisos continuam na aba Avisos).
 
 O iPhone usa o mesmo código; a build depende só da conta Apple Developer.

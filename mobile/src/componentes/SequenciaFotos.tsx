@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { FotoCapturada } from '@/lib/camera';
+import { formatarKm } from '@/lib/formatos';
 import { cores, espaco } from '@/lib/tema';
 
 import { Botao } from './Botao';
@@ -26,10 +27,12 @@ type Props = {
   onConcluir: (fotos: FotoDaSequencia[], km: number) => void;
   enviando?: boolean;
   erro?: string | null;
+  /** Km atual do carro: o km do painel não pode ser menor (conferido antes de entrar na fila). */
+  kmMinimo?: number;
 };
 
 /** Retirada/devolução guiada: 5 fotos em ordem (sem galeria) e, depois do painel, o km. */
-export function SequenciaFotos({ momento, onConcluir, enviando = false, erro }: Props) {
+export function SequenciaFotos({ momento, onConcluir, enviando = false, erro, kmMinimo }: Props) {
   const [passo, setPasso] = useState(0);
   const [fotos, setFotos] = useState<Partial<Record<PosicaoFoto, FotoCapturada>>>({});
   const [km, setKm] = useState('');
@@ -43,6 +46,10 @@ export function SequenciaFotos({ momento, onConcluir, enviando = false, erro }: 
     const numero = /^\d+$/.test(km.trim()) ? Number(km.trim()) : null;
     if (numero === null) {
       setErroKm('Informe o km.');
+      return;
+    }
+    if (kmMinimo !== undefined && numero < kmMinimo) {
+      setErroKm(`O km não pode ser menor que o atual do carro (${formatarKm(kmMinimo)}).`);
       return;
     }
     setErroKm(undefined);

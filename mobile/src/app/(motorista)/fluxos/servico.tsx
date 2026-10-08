@@ -62,7 +62,7 @@ export default function Servico() {
         fotos: [{ uri: nota.uri, bucket: 'fotos', path, enviada: false, capturadoEm: nota.capturadoEm }],
         acoes: [
           {
-            rpc: 'registrar_servico',
+            rpc: 'registrar_servico_offline',
             args: {
               p_vehicle_id: carro,
               p_itens: [...marcados].map((id) => ({ vehicle_item_id: id })),

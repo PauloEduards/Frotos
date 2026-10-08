@@ -1,0 +1,23 @@
+# O EAS usa este arquivo no lugar do .gitignore ao enviar o projeto para a build.
+# Igual ao .gitignore, mas SEM ignorar o .env: a build precisa do endereço e da chave do Supabase.
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+*.tsbuildinfo
+/ios
+/android
