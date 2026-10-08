@@ -1,6 +1,7 @@
 import type { StatusItem } from '@/lib/status';
 import { supabase } from '@/lib/cliente';
 import { comoErroApp } from '@/lib/erros';
+import { enviarFoto, novoCaminho } from '@/lib/upload';
 
 export type NovoVeiculo = {
   placa: string;
@@ -37,6 +38,51 @@ export async function cadastrarVeiculo(fleetId: string, v: NovoVeiculo): Promise
     .single();
   if (error) throw comoErroApp(error);
   return data;
+}
+
+/** Envia a foto do carro (bucket 'carros') e grava o caminho no carro. */
+export async function definirFotoCarro(fleetId: string, vehicleId: string, uri: string): Promise<void> {
+  const path = novoCaminho(fleetId, vehicleId);
+  await enviarFoto('carros', path, uri);
+  const { error } = await supabase.from('vehicles').update({ foto_path: path }).eq('id', vehicleId);
+  if (error) throw comoErroApp(error);
+}
+
+export type ModoVisibilidade = 'todos' | 'alguns' | 'um';
+
+export async function definirVisibilidade(
+  vehicleId: string,
+  modo: ModoVisibilidade,
+  motoristas: string[],
+): Promise<void> {
+  const { error } = await supabase.rpc('definir_visibilidade', {
+    p_vehicle_id: vehicleId,
+    p_modo: modo,
+    p_motoristas: modo === 'todos' ? [] : motoristas,
+  });
+  if (error) throw comoErroApp(error);
+}
+
+export async function definirAnuncio(vehicleId: string, anunciado: boolean): Promise<void> {
+  const { error } = await supabase.from('vehicles').update({ anunciado }).eq('id', vehicleId);
+  if (error) throw comoErroApp(error);
+}
+
+/** Motoristas marcados na visibilidade "alguns"/"um" do carro. */
+export async function motoristasDaVisibilidade(vehicleId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('vehicle_visibility')
+    .select('driver_id')
+    .eq('vehicle_id', vehicleId);
+  if (error) throw comoErroApp(error);
+  return (data ?? []).map((l) => l.driver_id);
+}
+
+/** Caminho da foto de cada carro da frota (para os cards do painel e das pendências). */
+export async function fotosDosCarros(fleetId: string): Promise<Record<string, string | null>> {
+  const { data, error } = await supabase.from('vehicles').select('id, foto_path').eq('fleet_id', fleetId);
+  if (error) throw comoErroApp(error);
+  return Object.fromEntries((data ?? []).map((v) => [v.id, v.foto_path]));
 }
 
 export type ItemVeiculo = {
@@ -193,13 +239,16 @@ export type Veiculo = {
   km_atual: number;
   km_dia_estimado: number;
   exige_aprovacao_sempre: boolean;
+  foto_path: string | null;
+  visibilidade: ModoVisibilidade;
+  anunciado: boolean;
 };
 
 export async function buscarVeiculo(id: string): Promise<Veiculo> {
   const { data, error } = await supabase
     .from('vehicles')
     .select(
-      'id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado, exige_aprovacao_sempre',
+      'id, fleet_id, placa, marca, modelo, ano_modelo, cor, km_atual, km_dia_estimado, exige_aprovacao_sempre, foto_path, visibilidade, anunciado',
     )
     .eq('id', id)
     .single();

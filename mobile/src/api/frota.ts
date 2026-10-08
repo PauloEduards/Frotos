@@ -10,10 +10,13 @@ export type Frota = {
   limiar_amarelo_km: number;
   limiar_amarelo_dias: number;
   limiar_laranja_km: number;
+  /** Estado e cidade da frota (obrigatórios para anunciar carros na busca). */
+  uf?: string | null;
+  cidade?: string | null;
 };
 
 const COLUNAS =
-  'id, nome, codigo_convite, modo_manutencao, limite_salto_km_dia, limiar_amarelo_km, limiar_amarelo_dias, limiar_laranja_km';
+  'id, nome, codigo_convite, modo_manutencao, limite_salto_km_dia, limiar_amarelo_km, limiar_amarelo_dias, limiar_laranja_km, uf, cidade';
 
 export async function minhaFrota(): Promise<Frota | null> {
   const { data: sessao } = await supabase.auth.getSession();

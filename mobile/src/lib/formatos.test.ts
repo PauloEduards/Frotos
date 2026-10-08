@@ -124,3 +124,13 @@ describe('formatarDataHoraBrt', () => {
     expect(formatarDataHoraBrt(null)).toBe('—');
   });
 });
+
+describe('UFS', () => {
+  it('tem as 27 siglas, em ordem', () => {
+    const { UFS } = require('./formatos');
+    expect(UFS).toHaveLength(27);
+    expect(UFS[0]).toBe('AC');
+    expect(UFS).toContain('SP');
+    expect(UFS[26]).toBe('TO');
+  });
+});

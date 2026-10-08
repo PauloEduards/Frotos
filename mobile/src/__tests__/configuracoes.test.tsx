@@ -61,6 +61,8 @@ describe('configurações da frota', () => {
 
     await waitFor(() =>
       expect(atualizarFrotaMock).toHaveBeenCalledWith('f1', {
+        uf: null,
+        cidade: null,
         modo_manutencao: 'motoristas_levam',
         limite_salto_km_dia: 400,
         limiar_amarelo_km: 1000,
@@ -94,6 +96,31 @@ describe('configurações da frota', () => {
     );
     await fireEvent.press(screen.getByText('Salvar'));
     expect(await screen.findByText('Informe um número válido.')).toBeTruthy();
+    expect(atualizarFrotaMock).not.toHaveBeenCalled();
+  });
+
+  it('UF e cidade da frota (para anunciar carros na busca)', async () => {
+    await renderizar();
+    expect(await screen.findByText('Cidade da frota')).toBeTruthy();
+    expect(screen.getByText('Usada para anunciar seus carros na busca de motoristas.')).toBeTruthy();
+    expect(screen.getByText('AC')).toBeTruthy();
+    expect(screen.getByText('TO')).toBeTruthy();
+    await fireEvent.press(screen.getByText('SP'));
+    await fireEvent.changeText(screen.getByLabelText('Cidade'), '  Campinas ');
+    await fireEvent.press(screen.getByText('Salvar'));
+    await waitFor(() =>
+      expect(atualizarFrotaMock).toHaveBeenCalledWith(
+        'f1',
+        expect.objectContaining({ uf: 'SP', cidade: 'Campinas' }),
+      ),
+    );
+  });
+
+  it('cidade sem UF não salva', async () => {
+    await renderizar();
+    await fireEvent.changeText(await screen.findByLabelText('Cidade'), 'Campinas');
+    await fireEvent.press(screen.getByText('Salvar'));
+    expect(await screen.findByText('Escolha o estado e informe a cidade.')).toBeTruthy();
     expect(atualizarFrotaMock).not.toHaveBeenCalled();
   });
 

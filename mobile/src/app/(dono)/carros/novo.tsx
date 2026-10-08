@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 
 import { minhaFrota } from '@/api/frota';
-import { CORES, MARCAS_COMUNS, cadastrarVeiculo, type NovoVeiculo } from '@/api/veiculos';
+import { CORES, MARCAS_COMUNS, cadastrarVeiculo, definirFotoCarro, type NovoVeiculo } from '@/api/veiculos';
+import { CampoFoto } from '@/componentes/CampoFoto';
+import type { FotoCapturada } from '@/lib/camera';
 import { Botao } from '@/componentes/Botao';
 import { Campo } from '@/componentes/Campo';
 import { Carregando } from '@/componentes/Carregando';
@@ -31,7 +33,7 @@ const KM_DIA_PADRAO = '300';
 const OPCOES_COR = CORES.map((c) => ({ valor: c, rotulo: c }));
 
 type Erros = Partial<
-  Record<'placa' | 'marca' | 'modelo' | 'ano' | 'cor' | 'km' | 'kmDia', string>
+  Record<'placa' | 'marca' | 'modelo' | 'ano' | 'cor' | 'km' | 'kmDia' | 'foto', string>
 >;
 
 function lerInteiro(texto: string, minimo: number, maximo: number): number | null {
@@ -82,9 +84,17 @@ function Formulario({ fleetId }: { fleetId: string }) {
   const [kmDia, setKmDia] = useState(KM_DIA_PADRAO);
   const [erros, setErros] = useState<Erros>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
+  const [foto, setFoto] = useState<FotoCapturada | null>(null);
 
   const cadastrar = useMutation({
-    mutationFn: (v: NovoVeiculo) => cadastrarVeiculo(fleetId, v),
+    mutationFn: async (v: NovoVeiculo) => {
+      const criado = await cadastrarVeiculo(fleetId, v);
+      if (foto) {
+        // O carro já existe: se a foto falhar, segue para o plano e a foto pode ser trocada no detalhe.
+        await definirFotoCarro(fleetId, criado.id, foto.uri).catch(() => undefined);
+      }
+      return criado;
+    },
     onSuccess: async ({ id }) => {
       await invalidarDadosDaFrota(queryClient);
       router.replace(`/(dono)/carros/${id}/itens`);
@@ -116,6 +126,8 @@ function Formulario({ fleetId }: { fleetId: string }) {
 
     const kmDiaNumero = lerInteiro(kmDia, 1, MAX_INT);
     if (kmDiaNumero === null) novosErros.kmDia = 'Informe o km por dia.';
+
+    if (!foto) novosErros.foto = 'Tire uma foto do carro.';
 
     setErros(novosErros);
     if (
@@ -188,6 +200,14 @@ function Formulario({ fleetId }: { fleetId: string }) {
             motoristas.
           </Text>
         </View>
+
+        <CampoFoto
+          titulo="Tirar foto do carro"
+          icone="car"
+          uri={foto?.uri}
+          onFoto={setFoto}
+          erro={erros.foto}
+        />
 
         {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
         <Botao titulo="Cadastrar carro" onPress={aoCadastrar} carregando={cadastrar.isPending} />

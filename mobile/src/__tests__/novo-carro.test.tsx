@@ -2,7 +2,8 @@ import type { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { minhaFrota, type Frota } from '@/api/frota';
-import { cadastrarVeiculo } from '@/api/veiculos';
+import { cadastrarVeiculo, definirFotoCarro } from '@/api/veiculos';
+import { capturarFoto } from '@/lib/camera';
 import NovoCarro from '@/app/(dono)/carros/novo';
 import { renderComCliente } from '@/testes/renderComCliente';
 
@@ -13,10 +14,14 @@ jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/veiculos', () => ({
   ...jest.requireActual('@/api/veiculos'),
   cadastrarVeiculo: jest.fn(),
+  definirFotoCarro: jest.fn(),
 }));
+jest.mock('@/lib/camera', () => ({ capturarFoto: jest.fn() }));
 
 const minhaFrotaMock = minhaFrota as jest.Mock;
 const cadastrarMock = cadastrarVeiculo as jest.Mock;
+const fotoMock = definirFotoCarro as jest.Mock;
+const cameraMock = capturarFoto as jest.Mock;
 
 const frota: Frota = {
   id: 'f1',
@@ -42,6 +47,7 @@ async function renderizarFormulario() {
 
 async function preencher(
   campos: Partial<{ placa: string; modelo: string; ano: string; km: string }> = {},
+  comFoto = true,
 ) {
   const v = { placa: 'abc-1d23', modelo: 'Onix 1.0', ano: '2022', km: '45200', ...campos };
   await fireEvent.changeText(screen.getByLabelText('Placa'), v.placa);
@@ -50,12 +56,46 @@ async function preencher(
   await fireEvent.changeText(screen.getByLabelText('Ano'), v.ano);
   await fireEvent.press(screen.getByText('Prata'));
   await fireEvent.changeText(screen.getByLabelText('Km atual'), v.km);
+  if (comFoto) {
+    await fireEvent.press(screen.getByText('Tirar foto do carro'));
+    await screen.findByText('Refazer foto');
+  }
 }
 
 
 beforeEach(() => {
   jest.clearAllMocks();
   minhaFrotaMock.mockResolvedValue(frota);
+  cameraMock.mockResolvedValue({ uri: 'file://carro.jpg', capturadoEm: '2026-10-08T12:00:00.000Z' });
+  fotoMock.mockResolvedValue(undefined);
+});
+
+describe('foto do carro', () => {
+  it('sem foto não cadastra e pede a foto', async () => {
+    await renderizarFormulario();
+    await preencher({}, false);
+    await fireEvent.press(screen.getByText('Cadastrar carro'));
+    expect(await screen.findByText('Tire uma foto do carro.')).toBeTruthy();
+    expect(cadastrarMock).not.toHaveBeenCalled();
+  });
+
+  it('com foto: cadastra e envia a foto do carro', async () => {
+    cadastrarMock.mockResolvedValue({ id: 'v9' });
+    await renderizarFormulario();
+    await preencher();
+    await fireEvent.press(screen.getByText('Cadastrar carro'));
+    await waitFor(() => expect(fotoMock).toHaveBeenCalledWith('f1', 'v9', 'file://carro.jpg'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(dono)/carros/v9/itens'));
+  });
+
+  it('câmera sem permissão mostra a mensagem', async () => {
+    cameraMock.mockRejectedValue(new (jest.requireActual('@/lib/erros').ErroApp)('Libere o acesso à câmera nas configurações do celular para continuar.'));
+    await renderizarFormulario();
+    await fireEvent.press(screen.getByText('Tirar foto do carro'));
+    expect(
+      await screen.findByText('Libere o acesso à câmera nas configurações do celular para continuar.'),
+    ).toBeTruthy();
+  });
 });
 
 describe('cadastro de carro', () => {

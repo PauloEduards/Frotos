@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { criarFrota, gerarNovoCodigo, minhaFrota, type Frota } from '@/api/frota';
-import { resumoFrota, type ResumoCarro } from '@/api/veiculos';
+import { fotosDosCarros, resumoFrota, type ResumoCarro } from '@/api/veiculos';
+import { CardCarro } from '@/componentes/CardCarro';
+import { useUrlsAssinadas } from '@/lib/useUrlsAssinadas';
 import { BadgeStatus } from '@/componentes/BadgeStatus';
 import { Botao } from '@/componentes/Botao';
 import { Campo } from '@/componentes/Campo';
@@ -69,7 +71,7 @@ export default function PainelFrota() {
         <>
           <CartaoCodigo frota={frota.data} />
           <AdicionarCarro />
-          <ListaCarros consulta={carros} />
+          <ListaCarros consulta={carros} fleetId={fleetId as string} />
         </>
       ) : (
         <CriarFrota />
@@ -78,7 +80,10 @@ export default function PainelFrota() {
   );
 }
 
-function ListaCarros({ consulta }: { consulta: UseQueryResult<ResumoCarro[]> }) {
+function ListaCarros({ consulta, fleetId }: { consulta: UseQueryResult<ResumoCarro[]>; fleetId: string }) {
+  const caminhos = useQuery({ queryKey: ['veiculos', 'fotos', fleetId], queryFn: () => fotosDosCarros(fleetId) });
+  const paths = Object.values(caminhos.data ?? {}).filter((p): p is string => !!p);
+  const fotos = useUrlsAssinadas(paths, paths.length > 0, 'carros');
   // Se a atualização falhar, a lista anterior continua visível abaixo do erro.
   const erro = consulta.isError ? (
     <View style={estilos.bloco}>
@@ -102,36 +107,42 @@ function ListaCarros({ consulta }: { consulta: UseQueryResult<ResumoCarro[]> }) 
     <View style={estilos.bloco}>
       {erro}
       {ordenados.map((c) => (
-        <CartaoCarro key={c.vehicle_id} carro={c} />
+        <CartaoCarro
+          key={c.vehicle_id}
+          carro={c}
+          fotoUrl={(() => {
+            const p = caminhos.data?.[c.vehicle_id];
+            return p ? fotos.urls[p] ?? null : null;
+          })()}
+        />
       ))}
     </View>
   );
 }
 
-function CartaoCarro({ carro }: { carro: ResumoCarro }) {
+function CartaoCarro({ carro, fotoUrl }: { carro: ResumoCarro; fotoUrl: string | null }) {
   const router = useRouter();
   const proxima =
     carro.proximo_item && carro.proxima_data
       ? `Próxima: ${carro.proximo_item} em ${formatarData(carro.proxima_data)}`
       : 'Sem previsão de manutenção';
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push(`/carros/${carro.vehicle_id}`)}
-      style={({ pressed }) => [
-        estilos.cartao,
-        { borderLeftWidth: 6, borderLeftColor: corStatus(carro.status) },
-        pressed && { opacity: 0.7 },
-      ]}
-    >
-      <View style={estilos.linhaCarro}>
-        <Text style={estilos.placa}>{`${carro.placa} · ${carro.marca} ${carro.modelo}`}</Text>
-        <BadgeStatus status={carro.status} />
-      </View>
-      <Text style={estilos.detalhe}>{proxima}</Text>
-      {carro.estimada ? <Text style={estilos.estimada}>previsão estimada</Text> : null}
-      <Text style={estilos.detalhe}>{carro.motorista_nome ? `Motorista: ${carro.motorista_nome}` : 'Livre'}</Text>
-    </Pressable>
+    <View style={{ borderLeftWidth: 6, borderLeftColor: corStatus(carro.status), borderRadius: 12 }}>
+      <CardCarro
+        onPress={() => router.push(`/carros/${carro.vehicle_id}`)}
+        carro={{ placa: carro.placa, marca: carro.marca, modelo: carro.modelo, fotoUrl }}
+        selo={<BadgeStatus status={carro.status} />}
+        rodape={
+          <>
+            <Text style={estilos.detalhe}>{proxima}</Text>
+            {carro.estimada ? <Text style={estilos.estimada}>previsão estimada</Text> : null}
+            <Text style={estilos.detalhe}>
+              {carro.motorista_nome ? `Motorista: ${carro.motorista_nome}` : 'Livre'}
+            </Text>
+          </>
+        }
+      />
+    </View>
   );
 }
 

@@ -100,3 +100,9 @@ export const VALOR_MAXIMO = 99999999.99;
 export function valorMuitoAlto(n: number): boolean {
   return n > VALOR_MAXIMO;
 }
+
+/** As 27 unidades da federação, em ordem alfabética. */
+export const UFS = [
+  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA',
+  'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
+] as const;

@@ -9,11 +9,15 @@ const MEIA_HORA = 30 * 60 * 1000;
  * `renovar` pede endereços novos, por exemplo quando uma foto não carrega (endereço vencido).
  * Se a assinatura falhar, `urls` fica vazio e as telas mostram "Sem imagem".
  */
-export function useUrlsAssinadas(caminhos: string[], habilitado = true) {
+export function useUrlsAssinadas(
+  caminhos: string[],
+  habilitado = true,
+  bucket: 'fotos' | 'carros' = 'fotos',
+) {
   const ordenados = [...new Set(caminhos)].sort();
   const fotos = useQuery({
-    queryKey: ['fotos', ordenados.join('|')],
-    queryFn: () => urlsAssinadas(ordenados),
+    queryKey: ['fotos', bucket, ordenados.join('|')],
+    queryFn: () => urlsAssinadas(ordenados, bucket),
     enabled: habilitado && ordenados.length > 0,
     staleTime: MEIA_HORA,
     placeholderData: (anterior) => anterior,

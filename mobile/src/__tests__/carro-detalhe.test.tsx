@@ -32,7 +32,18 @@ jest.mock('expo-router', () => ({
 jest.mock('@/lib/cliente', () => ({ supabase: {} }));
 jest.mock('@/api/fotos', () => ({ urlsAssinadas: jest.fn() }));
 jest.mock('@/api/manutencao', () => ({ pedidosAbertos: jest.fn(), cancelarPedido: jest.fn() }));
+jest.mock('@/lib/camera', () => ({ capturarFoto: jest.fn() }));
+jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
+jest.mock('@/componentes/dono/VisibilidadeCarro', () => {
+  const { Text } = require('react-native');
+  return {
+    VisibilidadeCarro: (p: { frotaTemCidade: boolean; visibilidade: string }) => (
+      <Text>{`Visibilidade:${p.visibilidade}:${p.frotaTemCidade ? 'com-cidade' : 'sem-cidade'}`}</Text>
+    ),
+  };
+});
 jest.mock('@/api/veiculos', () => ({
+  definirFotoCarro: jest.fn(),
   atualizarVeiculo: jest.fn(),
   corrigirKm: jest.fn(),
   buscarVeiculo: jest.fn(),
@@ -69,6 +80,9 @@ const veiculo = {
   km_atual: 45200,
   km_dia_estimado: 300,
   exige_aprovacao_sempre: false,
+  foto_path: null,
+  visibilidade: 'todos',
+  anunciado: false,
 };
 
 function item(extra: Partial<PrevisaoItem> & { nome: string }): PrevisaoItem {
@@ -92,6 +106,7 @@ async function renderizar() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (jest.requireMock('@/api/frota').minhaFrota as jest.Mock).mockResolvedValue({ id: 'f1', uf: 'SP', cidade: 'São Paulo' });
   buscarMock.mockResolvedValue(veiculo);
   statusMock.mockResolvedValue({
     status: 'urgente',
@@ -118,7 +133,8 @@ describe('cabeçalho', () => {
   it('mostra placa, modelo, cor, km atual e média', async () => {
     await renderizar();
     expect(await screen.findByText('ABC1D23')).toBeTruthy();
-    expect(screen.getByText('Chevrolet Onix 1.0 · Prata')).toBeTruthy();
+    expect(screen.getByText('Chevrolet Onix 1.0')).toBeTruthy();
+    expect(screen.getByText('2022 · Prata')).toBeTruthy();
     expect(screen.getByText('Km atual: 45.200 km')).toBeTruthy();
     expect(screen.getByText('Média: 300 km/dia')).toBeTruthy();
     expect(screen.getByText('Urgente')).toBeTruthy();
@@ -285,7 +301,7 @@ describe('Leituras de km', () => {
     urlsMock.mockResolvedValue({ 'f1/v1/painel.jpg': 'https://exemplo.test/painel.jpg' });
     await renderizar();
     const foto = await screen.findByLabelText('Foto do painel');
-    await waitFor(() => expect(urlsMock).toHaveBeenCalledWith(['f1/v1/painel.jpg']));
+    await waitFor(() => expect(urlsMock).toHaveBeenCalledWith(['f1/v1/painel.jpg'], 'fotos'));
     expect(screen.queryByText('Fechar')).toBeNull();
     await fireEvent.press(foto);
     expect(await screen.findByText('Fechar')).toBeTruthy();
@@ -590,5 +606,29 @@ describe('menu Mais', () => {
     await botoes.find((b) => b.style === 'destructive')?.onPress?.();
     await waitFor(() => expect(atualizarMock).toHaveBeenCalledWith('v1', { ativo: false }));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+});
+
+describe('foto e visibilidade do carro', () => {
+  it('mostra a seção de visibilidade com a cidade da frota', async () => {
+    await renderizar();
+    expect(await screen.findByText('Visibilidade:todos:com-cidade')).toBeTruthy();
+  });
+
+  it('Trocar foto do carro tira a foto e envia', async () => {
+    const camera = jest.requireMock('@/lib/camera').capturarFoto as jest.Mock;
+    const definirFoto = jest.requireMock('@/api/veiculos').definirFotoCarro as jest.Mock;
+    camera.mockResolvedValue({ uri: 'file://nova.jpg', capturadoEm: '2026-10-08T12:00:00.000Z' });
+    definirFoto.mockResolvedValue(undefined);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Trocar foto do carro'));
+    await waitFor(() => expect(definirFoto).toHaveBeenCalledWith('f1', 'v1', 'file://nova.jpg'));
+  });
+
+  it('com foto, pede o endereço no bucket de carros', async () => {
+    buscarMock.mockResolvedValue({ ...veiculo, foto_path: 'f1/v1/carro.jpg' });
+    urlsMock.mockResolvedValue({});
+    await renderizar();
+    await waitFor(() => expect(urlsMock).toHaveBeenCalledWith(['f1/v1/carro.jpg'], 'carros'));
   });
 });

@@ -16,6 +16,7 @@ import { cancelarPedido, pedidosAbertos, type PedidoAberto } from '@/api/manuten
 import {
   atualizarVeiculo,
   buscarVeiculo,
+  definirFotoCarro,
   corrigirKm,
   leiturasKm,
   previsaoItens,
@@ -29,7 +30,11 @@ import {
   type StatusServico,
   type Vinculo,
 } from '@/api/veiculos';
+import { minhaFrota } from '@/api/frota';
 import { BadgeStatus } from '@/componentes/BadgeStatus';
+import { CardCarro } from '@/componentes/CardCarro';
+import { VisibilidadeCarro } from '@/componentes/dono/VisibilidadeCarro';
+import { capturarFoto } from '@/lib/camera';
 import { Botao } from '@/componentes/Botao';
 import { Campo } from '@/componentes/Campo';
 import { Carregando } from '@/componentes/Carregando';
@@ -82,6 +87,22 @@ export default function DetalheCarro() {
   const [atualizando, setAtualizando] = useState(false);
 
   const veiculo = useQuery({ queryKey: ['veiculos', 'detalhe', id], queryFn: () => buscarVeiculo(id) });
+  const frota = useQuery({ queryKey: ['frota'], queryFn: minhaFrota });
+  const fotoCarro = useUrlsAssinadas(
+    veiculo.data?.foto_path ? [veiculo.data.foto_path] : [],
+    !!veiculo.data?.foto_path,
+    'carros',
+  );
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+  const trocarFoto = useMutation({
+    mutationFn: async () => {
+      const foto = await capturarFoto();
+      if (!foto || !veiculo.data) return;
+      await definirFotoCarro(veiculo.data.fleet_id, id, foto.uri);
+    },
+    onSuccess: () => invalidarDadosDaFrota(queryClient),
+    onError: (e) => setErroFoto(mensagemErro(e)),
+  });
   const status = useQuery({ queryKey: ['veiculos', 'status', id], queryFn: () => statusCarro(id) });
   const previsao = useQuery({ queryKey: ['veiculos', 'previsao', id], queryFn: () => previsaoItens(id) });
   const leituras = useQuery({ queryKey: ['veiculos', 'leituras', id], queryFn: () => leiturasKm(id) });
@@ -207,11 +228,28 @@ export default function DetalheCarro() {
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => void atualizar()} />}
     >
       <View style={estilos.cabecalho}>
-        <View style={estilos.linhaCabecalho}>
-          <Text style={estilos.placa}>{v.placa}</Text>
-          {resumo ? <BadgeStatus status={resumo.status} /> : null}
-        </View>
-        <Text style={estilos.modelo}>{`${v.marca} ${v.modelo} · ${v.cor}`}</Text>
+        <CardCarro
+          tamanhoPlaca="grande"
+          carro={{
+            placa: v.placa,
+            marca: v.marca,
+            modelo: v.modelo,
+            ano_modelo: v.ano_modelo,
+            cor: v.cor,
+            fotoUrl: v.foto_path ? fotoCarro.urls[v.foto_path] ?? null : null,
+          }}
+          selo={resumo ? <BadgeStatus status={resumo.status} /> : undefined}
+        />
+        <Botao
+          titulo="Trocar foto do carro"
+          variante="secundario"
+          onPress={() => {
+            setErroFoto(null);
+            trocarFoto.mutate();
+          }}
+          carregando={trocarFoto.isPending}
+        />
+        {erroFoto ? <MensagemErro texto={erroFoto} /> : null}
         <Text style={estilos.destaque}>{`Km atual: ${formatarKm(v.km_atual)}`}</Text>
         {resumo && media ? (
           <Text style={estilos.apoio}>
@@ -225,6 +263,14 @@ export default function DetalheCarro() {
           </>
         ) : null}
       </View>
+
+      <VisibilidadeCarro
+        vehicleId={id}
+        fleetId={v.fleet_id}
+        visibilidade={v.visibilidade}
+        anunciado={v.anunciado}
+        frotaTemCidade={!!(frota.data?.uf && frota.data?.cidade)}
+      />
 
       <Botao titulo="Plano de manutenção" variante="secundario" onPress={() => router.push(`/carros/${id}/itens`)} />
       <Botao titulo="Registrar serviço" onPress={() => router.push(`/carros/${id}/servico`)} />

@@ -8,6 +8,7 @@ import { Campo } from '@/componentes/Campo';
 import { Carregando } from '@/componentes/Carregando';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
+import { UFS } from '@/lib/formatos';
 import { mensagemErro } from '@/lib/erros';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
@@ -77,6 +78,9 @@ export default function Configuracoes() {
 function Formulario({ frota }: { frota: Frota }) {
   const queryClient = useQueryClient();
   const [modo, setModo] = useState<Modo>(frota.modo_manutencao);
+  const [uf, setUf] = useState<string | null>(frota.uf ?? null);
+  const [cidade, setCidade] = useState(frota.cidade ?? '');
+  const [erroCidade, setErroCidade] = useState<string | null>(null);
   const [valores, setValores] = useState<Record<NumeroCampo, string>>({
     limite_salto_km_dia: String(frota.limite_salto_km_dia),
     limiar_amarelo_km: String(frota.limiar_amarelo_km),
@@ -112,9 +116,12 @@ function Formulario({ frota }: { frota: Frota }) {
       else numeros[c.chave] = n;
     }
     setErros(novosErros);
-    if (Object.keys(novosErros).length > 0) return;
+    const cidadeLimpa = cidade.trim();
+    const cidadeOk = (uf === null && !cidadeLimpa) || (uf !== null && !!cidadeLimpa);
+    setErroCidade(cidadeOk ? null : 'Escolha o estado e informe a cidade.');
+    if (Object.keys(novosErros).length > 0 || !cidadeOk) return;
 
-    salvar.mutate({ modo_manutencao: modo, ...numeros });
+    salvar.mutate({ uf, cidade: cidadeLimpa || null, modo_manutencao: modo, ...numeros });
   }
 
   function alterar(chave: NumeroCampo, texto: string) {
@@ -128,6 +135,29 @@ function Formulario({ frota }: { frota: Frota }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+        <View style={estilos.grupo}>
+          <Text style={estilos.secao}>Cidade da frota</Text>
+          <Text style={estilos.apoio}>Usada para anunciar seus carros na busca de motoristas.</Text>
+          <Seletor
+            rotulo="Estado"
+            opcoes={UFS.map((u) => ({ valor: u, rotulo: u }))}
+            valor={uf ?? ''}
+            onChange={(u) => {
+              setSalvo(false);
+              setUf(u);
+            }}
+            quebrarLinha
+          />
+          <Campo
+            rotulo="Cidade"
+            valor={cidade}
+            onChange={(t) => {
+              setSalvo(false);
+              setCidade(t);
+            }}
+            erro={erroCidade ?? undefined}
+          />
+        </View>
         <Seletor
           rotulo="Quem leva o carro à oficina"
           opcoes={MODOS}
@@ -170,6 +200,8 @@ const estilos = StyleSheet.create({
   fundo: { flex: 1, backgroundColor: cores.fundo },
   conteudo: { padding: espaco.xl, gap: espaco.lg },
   apoio: { fontSize: 15, color: cores.textoSecundario },
+  grupo: { gap: espaco.sm },
+  secao: { fontSize: 17, fontWeight: '700', color: cores.texto },
   sucesso: { fontSize: 14, color: '#2E7D32' },
   sair: { gap: espaco.sm, marginTop: espaco.lg },
 });
