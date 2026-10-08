@@ -38,6 +38,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O Frotos usa a câmera para registrar fotos do carro e do painel.",
+          "photosPermission": false
+        }
       ]
     ],
     "experiments": {

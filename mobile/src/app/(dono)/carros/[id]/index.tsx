@@ -74,7 +74,7 @@ const ROTULO_POSICAO: Record<string, string> = {
   extra: 'extra',
 };
 
-const ORDEM_POSICAO = ['frente', 'traseira', 'lateral_esq', 'lateral_dir', 'extra'];
+const ORDEM_POSICAO = ['frente', 'traseira', 'lateral_esq', 'lateral_dir', 'painel', 'extra'];
 
 export default function DetalheCarro() {
   const { id } = useLocalSearchParams<{ id: string }>();

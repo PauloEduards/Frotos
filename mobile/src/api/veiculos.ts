@@ -263,7 +263,7 @@ export async function servicos(vehicleId: string): Promise<Servico[]> {
 export type FotoInspecao = {
   id: string;
   momento: 'retirada' | 'devolucao';
-  posicao: 'frente' | 'traseira' | 'lateral_esq' | 'lateral_dir' | 'extra';
+  posicao: 'frente' | 'traseira' | 'lateral_esq' | 'lateral_dir' | 'painel' | 'extra';
   path: string;
 };
 
