@@ -1,54 +1,71 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { screen } from '@testing-library/react-native';
 
-import { sair } from '@/api/auth';
+import { minhaSituacao } from '@/api/motorista';
+import MotoristaLayout from '@/app/(motorista)/_layout';
 import InicioMotorista from '@/app/(motorista)/index';
+import { renderComCliente } from '@/testes/renderComCliente';
 import { useSessao } from '@/sessao/useSessao';
 
-const mockRedirect = jest.fn((_props: { href: string }) => null);
-
-jest.mock('expo-router', () => ({
-  Redirect: (props: { href: string }) => mockRedirect(props),
-}));
+const mockRedirect = jest.fn();
+jest.mock('expo-router', () => {
+  const { Text } = require('react-native');
+  const Stack = ({ children }: { children?: unknown }) => <Text>pilha</Text>;
+  Stack.Screen = () => null;
+  return {
+    Redirect: ({ href }: { href: string }) => {
+      mockRedirect(href);
+      return null;
+    },
+    Stack,
+  };
+});
 jest.mock('@/sessao/useSessao', () => ({ useSessao: jest.fn() }));
-jest.mock('@/api/auth', () => ({ sair: jest.fn() }));
+jest.mock('@/api/motorista', () => ({ minhaSituacao: jest.fn() }));
 
-const useSessaoMock = useSessao as jest.Mock;
-const sairMock = sair as jest.Mock;
+const sessaoMock = useSessao as jest.Mock;
+const situacaoMock = minhaSituacao as jest.Mock;
 
-const base = { carregando: false, recarregarPerfil: jest.fn() };
+const perfilMotorista = { id: 'u1', nome: 'Ana', telefone: null, papel: 'motorista', criado_em: '2026-10-01' };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  sessaoMock.mockReturnValue({ carregando: false, sessao: { user: { id: 'u1' } }, perfil: perfilMotorista });
+});
+
+describe('layout do motorista', () => {
+  it('sem perfil de motorista volta para a raiz', async () => {
+    sessaoMock.mockReturnValue({ carregando: false, sessao: { user: { id: 'u1' } }, perfil: null });
+    await renderComCliente(<MotoristaLayout />);
+    expect(mockRedirect).toHaveBeenCalledWith('/');
+  });
+
+  it('sem sessão vai para entrar', async () => {
+    sessaoMock.mockReturnValue({ carregando: false, sessao: null, perfil: null });
+    await renderComCliente(<MotoristaLayout />);
+    expect(mockRedirect).toHaveBeenCalledWith('/(auth)/entrar');
+  });
+});
 
 describe('início do motorista', () => {
-  it('mostra saudação e aviso', async () => {
-    useSessaoMock.mockReturnValue({
-      ...base,
-      sessao: { user: { id: 'u1' } },
-      perfil: { id: 'u1', nome: 'Ana', papel: 'motorista' },
-    });
-    await render(<InicioMotorista />);
-    expect(screen.getByText('Olá, Ana!')).toBeTruthy();
-    expect(screen.getByText('O app do motorista chega em breve.')).toBeTruthy();
+  it('sem frota vai para Buscar carros', async () => {
+    situacaoMock.mockResolvedValue({ frotaAtiva: null });
+    await renderComCliente(<InicioMotorista />);
+    await screen.findByLabelText('Carregando', {}, { timeout: 50 }).catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockRedirect).toHaveBeenCalledWith('/(motorista)/(busca)/buscar');
   });
 
-  it('perfil null: não mostra "Olá, !" e volta para a raiz', async () => {
-    useSessaoMock.mockReturnValue({ ...base, sessao: { user: { id: 'u1' } }, perfil: null });
-    await render(<InicioMotorista />);
-    expect(screen.queryByText(/Olá/)).toBeNull();
-    expect(mockRedirect).toHaveBeenCalledWith({ href: '/' });
+  it('com frota vai para Meu carro', async () => {
+    situacaoMock.mockResolvedValue({ frotaAtiva: { fleet_id: 'f1', nome: 'Frota Piloto' } });
+    await renderComCliente(<InicioMotorista />);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockRedirect).toHaveBeenCalledWith('/(motorista)/(frota)/meu-carro');
   });
 
-  it('Sair com falha mostra a mensagem de erro', async () => {
-    useSessaoMock.mockReturnValue({
-      ...base,
-      sessao: { user: { id: 'u1' } },
-      perfil: { id: 'u1', nome: 'Ana', papel: 'motorista' },
-    });
-    sairMock.mockRejectedValue({ message: 'Network request failed' });
-    await render(<InicioMotorista />);
-    await fireEvent.press(screen.getByText('Sair'));
-    await waitFor(() =>
-      expect(screen.getByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy(),
-    );
+  it('erro mostra a mensagem e Tentar de novo', async () => {
+    situacaoMock.mockRejectedValue(new TypeError('Network request failed'));
+    await renderComCliente(<InicioMotorista />);
+    expect(await screen.findByText('Sem conexão com a internet. Tente de novo.')).toBeTruthy();
+    expect(screen.getByText('Tentar de novo')).toBeTruthy();
   });
 });

@@ -8,6 +8,8 @@ type Props = {
   onChange: (texto: string) => void;
   tipo?: 'texto' | 'email' | 'senha' | 'numero' | 'telefone';
   erro?: string;
+  maxLength?: number;
+  multiline?: boolean;
 };
 
 const porTipo: Record<NonNullable<Props['tipo']>, TextInputProps> = {
@@ -23,7 +25,7 @@ const porTipo: Record<NonNullable<Props['tipo']>, TextInputProps> = {
   telefone: { keyboardType: 'phone-pad', autoComplete: 'tel' },
 };
 
-export function Campo({ rotulo, valor, onChange, tipo = 'texto', erro }: Props) {
+export function Campo({ rotulo, valor, onChange, tipo = 'texto', erro, maxLength, multiline }: Props) {
   return (
     <View style={estilos.container}>
       <Text style={estilos.rotulo}>{rotulo}</Text>
@@ -33,6 +35,8 @@ export function Campo({ rotulo, valor, onChange, tipo = 'texto', erro }: Props) 
         onChangeText={onChange}
         style={[estilos.input, erro ? { borderColor: '#C62828' } : null]}
         placeholderTextColor={cores.textoSecundario}
+        maxLength={maxLength}
+        multiline={multiline}
         {...porTipo[tipo]}
       />
       {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
