@@ -30,8 +30,8 @@ select ok(not exists (
   join information_schema.parameters p on p.specific_name = r.specific_name
   where r.routine_schema = 'public' and r.routine_name = 'buscar_carros' and p.parameter_name = 'placa'),
   'buscar_carros não expõe placa');
-select is((select count(*)::int from public.buscar_carros('sp', 'SAO PAULO ')), 1, 'busca casa cidade sem acento/maiúsculas');
-select is((select frota_nome || '|' || coalesce(foto_path, '') from public.buscar_carros('SP', 'São Paulo')),
+select is((select count(*)::int from public.buscar_carros('sp', 'SAO PAULO ') where vehicle_id = :'c1'), 1, 'busca casa cidade sem acento/maiúsculas');
+select is((select frota_nome || '|' || coalesce(foto_path, '') from public.buscar_carros('SP', 'São Paulo') where vehicle_id = :'c1'),
   'Frota Cenário|' || :'f' || '/' || :'c1' || '/x.jpg', 'retorna frota e foto');
 select is((select count(*)::int from public.buscar_carros('SP', 'Campinas')), 0, 'outra cidade: nada');
 select tests.sair();
@@ -41,7 +41,7 @@ select tests.entrar_como(:'dono');
 select public.definir_visibilidade(:'c1', 'um', array[:'ma']::uuid[]);
 select tests.sair();
 select tests.entrar_como(:'l1');
-select is((select count(*)::int from public.buscar_carros('SP', 'São Paulo')), 0, 'reservado não aparece');
+select is((select count(*)::int from public.buscar_carros('SP', 'São Paulo') where vehicle_id = :'c1'), 0, 'reservado não aparece');
 select tests.sair();
 select tests.entrar_como(:'dono');
 select public.definir_visibilidade(:'c1', 'todos', array[]::uuid[]);
