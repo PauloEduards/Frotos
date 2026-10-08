@@ -365,16 +365,42 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"vehicles": {
+                },"vehicle_visibility": {
                   Row: {
-                    "ano_modelo": number,"ativo": boolean,"cor": string,"criado_em": string,"em_uso": boolean,"exige_aprovacao_sempre": boolean,"fipe_codigo": string | null,"fleet_id": string,"id": string,"km_atual": number,"km_dia_estimado": number,"marca": string,"modelo": string,"placa": string
+                    "driver_id": string,"vehicle_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "ano_modelo": number,"ativo"?: boolean,"cor": string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id": string,"id"?: string,"km_atual": number,"km_dia_estimado"?: number,"marca": string,"modelo": string,"placa": string
+                    "driver_id": string,"vehicle_id": string
                   }
                   Update: {
-                    "ano_modelo"?: number,"ativo"?: boolean,"cor"?: string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id"?: string,"id"?: string,"km_atual"?: number,"km_dia_estimado"?: number,"marca"?: string,"modelo"?: string,"placa"?: string
+                    "driver_id"?: string,"vehicle_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "vehicle_visibility_driver_id_fkey"
+      columns: ["driver_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "vehicle_visibility_vehicle_id_fkey"
+      columns: ["vehicle_id"]
+isOneToOne: false
+      referencedRelation: "vehicles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"vehicles": {
+                  Row: {
+                    "ano_modelo": number,"ativo": boolean,"cor": string,"criado_em": string,"em_uso": boolean,"exige_aprovacao_sempre": boolean,"fipe_codigo": string | null,"fleet_id": string,"id": string,"km_atual": number,"km_dia_estimado": number,"marca": string,"modelo": string,"placa": string,"visibilidade": Database["public"]['Enums']["visibilidade_carro"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "ano_modelo": number,"ativo"?: boolean,"cor": string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id": string,"id"?: string,"km_atual": number,"km_dia_estimado"?: number,"marca": string,"modelo": string,"placa": string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
+                  }
+                  Update: {
+                    "ano_modelo"?: number,"ativo"?: boolean,"cor"?: string,"criado_em"?: string,"em_uso"?: boolean,"exige_aprovacao_sempre"?: boolean,"fipe_codigo"?: string | null,"fleet_id"?: string,"id"?: string,"km_atual"?: number,"km_dia_estimado"?: number,"marca"?: string,"modelo"?: string,"placa"?: string,"visibilidade"?: Database["public"]['Enums']["visibilidade_carro"]
                   }
                   Relationships: [
                     {
@@ -429,6 +455,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"carros_para_mim":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "ano_modelo": number,"cor": string,"em_uso": boolean,"foto_path": string,"marca": string,"modelo": string,"placa": string,"vehicle_id": string
+            }[]
+                           },
 "concluir_retirada":
 { Args: { "p_assignment_id": string }; Returns: {
               "driver_id": string,
@@ -513,6 +544,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"definir_visibilidade":
+{ Args: { "p_modo": Database["public"]['Enums']["visibilidade_carro"],"p_motoristas"?: (string)[],"p_vehicle_id": string }; Returns: undefined
+                           },
 "devolver_carro":
 { Args: { "p_assignment_id": string,"p_capturado_em"?: string,"p_foto_painel_path"?: string,"p_km": number }; Returns: {
               "driver_id": string,
@@ -619,6 +653,9 @@ isOneToOne: false
                            },
 "permissao_registro":
 { Args: { "p_request_id"?: string,"p_vehicle_id": string }; Returns: string
+                           },
+"pode_ver_carro":
+{ Args: { "p_driver_id": string,"p_vehicle_id": string }; Returns: boolean
                            },
 "previsao_itens":
 { Args: { "p_hoje"?: string,"p_vehicle_id": string }; Returns: {
@@ -795,7 +832,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "modo_manutencao": "proprietario_leva"|"motoristas_levam","momento_foto": "retirada"|"devolucao","nivel_manutencao": "sem_permissao"|"com_aprovacao"|"confiavel","origem_km": "retirada"|"devolucao"|"atualizacao"|"manutencao"|"correcao_dono","papel_usuario": "proprietario"|"motorista","posicao_foto": "frente"|"traseira"|"lateral_esq"|"lateral_dir"|"extra","status_item": "sem_historico"|"vencido"|"urgente"|"proximo"|"em_dia","status_membro": "pendente"|"ativo"|"removido","status_ocorrencia": "aberta"|"resolvida","status_pedido": "aberto"|"concluido"|"cancelado","status_servico": "pendente"|"aprovado"|"recusado"|"contestado","status_vinculo": "aguardando_fotos"|"ativo"|"encerrado","tipo_ocorrencia": "mecanico"|"acidente_leve"|"acidente_grave"|"outro"
+            "modo_manutencao": "proprietario_leva"|"motoristas_levam","momento_foto": "retirada"|"devolucao","nivel_manutencao": "sem_permissao"|"com_aprovacao"|"confiavel","origem_km": "retirada"|"devolucao"|"atualizacao"|"manutencao"|"correcao_dono","papel_usuario": "proprietario"|"motorista","posicao_foto": "frente"|"traseira"|"lateral_esq"|"lateral_dir"|"extra","status_item": "sem_historico"|"vencido"|"urgente"|"proximo"|"em_dia","status_membro": "pendente"|"ativo"|"removido","status_ocorrencia": "aberta"|"resolvida","status_pedido": "aberto"|"concluido"|"cancelado","status_servico": "pendente"|"aprovado"|"recusado"|"contestado","status_vinculo": "aguardando_fotos"|"ativo"|"encerrado","tipo_ocorrencia": "mecanico"|"acidente_leve"|"acidente_grave"|"outro","visibilidade_carro": "todos"|"alguns"|"um"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -915,7 +952,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "modo_manutencao": ["proprietario_leva", "motoristas_levam"],"momento_foto": ["retirada", "devolucao"],"nivel_manutencao": ["sem_permissao", "com_aprovacao", "confiavel"],"origem_km": ["retirada", "devolucao", "atualizacao", "manutencao", "correcao_dono"],"papel_usuario": ["proprietario", "motorista"],"posicao_foto": ["frente", "traseira", "lateral_esq", "lateral_dir", "extra"],"status_item": ["sem_historico", "vencido", "urgente", "proximo", "em_dia"],"status_membro": ["pendente", "ativo", "removido"],"status_ocorrencia": ["aberta", "resolvida"],"status_pedido": ["aberto", "concluido", "cancelado"],"status_servico": ["pendente", "aprovado", "recusado", "contestado"],"status_vinculo": ["aguardando_fotos", "ativo", "encerrado"],"tipo_ocorrencia": ["mecanico", "acidente_leve", "acidente_grave", "outro"]
+            "modo_manutencao": ["proprietario_leva", "motoristas_levam"],"momento_foto": ["retirada", "devolucao"],"nivel_manutencao": ["sem_permissao", "com_aprovacao", "confiavel"],"origem_km": ["retirada", "devolucao", "atualizacao", "manutencao", "correcao_dono"],"papel_usuario": ["proprietario", "motorista"],"posicao_foto": ["frente", "traseira", "lateral_esq", "lateral_dir", "extra"],"status_item": ["sem_historico", "vencido", "urgente", "proximo", "em_dia"],"status_membro": ["pendente", "ativo", "removido"],"status_ocorrencia": ["aberta", "resolvida"],"status_pedido": ["aberto", "concluido", "cancelado"],"status_servico": ["pendente", "aprovado", "recusado", "contestado"],"status_vinculo": ["aguardando_fotos", "ativo", "encerrado"],"tipo_ocorrencia": ["mecanico", "acidente_leve", "acidente_grave", "outro"],"visibilidade_carro": ["todos", "alguns", "um"]
           }
         }
 } as const
