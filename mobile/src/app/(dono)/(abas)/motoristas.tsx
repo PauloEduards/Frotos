@@ -10,13 +10,17 @@ import {
   responderEntrada,
   type Membro,
 } from '@/api/frota';
+import { candidaturasPendentes, responderCandidatura, type CandidaturaDono } from '@/api/candidaturas';
 import { Botao } from '@/componentes/Botao';
+import { CardCarro } from '@/componentes/CardCarro';
 import { Carregando } from '@/componentes/Carregando';
 import { ListaVazia } from '@/componentes/ListaVazia';
 import { MensagemErro } from '@/componentes/MensagemErro';
 import { Seletor } from '@/componentes/Seletor';
 import { SemFrota } from '@/componentes/SemFrota';
 import { mensagemErro } from '@/lib/erros';
+import { formatarCpf } from '@/lib/formatos';
+import { useUrlsAssinadas } from '@/lib/useUrlsAssinadas';
 import { invalidarDadosDaFrota } from '@/lib/invalidar';
 import { cores, espaco } from '@/lib/tema';
 import { useRefreshOnFocus } from '@/lib/useRefreshOnFocus';
@@ -37,17 +41,25 @@ export default function Motoristas() {
     queryFn: () => listarMembros(fleetId as string),
     enabled: fleetId !== undefined,
   });
+  const candidaturas = useQuery({
+    queryKey: ['membros', 'candidaturas', fleetId],
+    queryFn: () => candidaturasPendentes(fleetId as string),
+    enabled: fleetId !== undefined,
+  });
   const [atualizando, setAtualizando] = useState(false);
 
   useRefreshOnFocus(() => {
     void frota.refetch();
-    if (fleetId !== undefined) void membros.refetch();
+    if (fleetId !== undefined) {
+      void membros.refetch();
+      void candidaturas.refetch();
+    }
   });
 
   async function atualizar() {
     setAtualizando(true);
     try {
-      await membros.refetch();
+      await Promise.all([membros.refetch(), candidaturas.refetch()]);
     } finally {
       setAtualizando(false);
     }
@@ -83,6 +95,7 @@ export default function Motoristas() {
 
   const pendentes = (lista ?? []).filter((m) => m.status === 'pendente');
   const ativos = (lista ?? []).filter((m) => m.status === 'ativo');
+  const candidatos = candidaturas.data ?? [];
 
   return (
     <ScrollView
@@ -98,7 +111,15 @@ export default function Motoristas() {
           <Botao titulo="Tentar de novo" onPress={() => void membros.refetch()} />
         </View>
       ) : null}
-      {pendentes.length === 0 && ativos.length === 0 ? (
+      {candidatos.length > 0 ? (
+        <View style={estilos.bloco}>
+          <Text style={estilos.secao}>Pedidos de motoristas</Text>
+          {candidatos.map((c) => (
+            <CartaoCandidatura key={c.id} candidatura={c} />
+          ))}
+        </View>
+      ) : null}
+      {pendentes.length === 0 && ativos.length === 0 && candidatos.length === 0 ? (
         <ListaVazia texto="Nenhum motorista ainda. Compartilhe o código da frota." />
       ) : null}
       {pendentes.length > 0 ? (
@@ -118,6 +139,47 @@ export default function Motoristas() {
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+function CartaoCandidatura({ candidatura: c }: { candidatura: CandidaturaDono }) {
+  const queryClient = useQueryClient();
+  const [erro, setErro] = useState<string | null>(null);
+  const foto = useUrlsAssinadas(c.carro.foto_path ? [c.carro.foto_path] : [], !!c.carro.foto_path, 'carros');
+  const responder = useMutation({
+    mutationFn: (aceitar: boolean) => responderCandidatura(c.id, aceitar),
+    onSuccess: () => invalidarDadosDaFrota(queryClient),
+    onError: (e) => setErro(mensagemErro(e)),
+  });
+
+  function recusar() {
+    Alert.alert('Recusar candidato?', `${c.nome} será avisado.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Recusar', style: 'destructive', onPress: () => responder.mutate(false) },
+    ]);
+  }
+
+  return (
+    <View style={estilos.cartao}>
+      <Text style={estilos.nome}>{c.nome}</Text>
+      {c.telefone ? <Text style={estilos.detalhe}>{c.telefone}</Text> : null}
+      {c.cidade && c.uf ? <Text style={estilos.detalhe}>{`${c.cidade}/${c.uf}`}</Text> : null}
+      <Text style={estilos.detalhe}>{`CPF ${formatarCpf(c.cpf)}`}</Text>
+      <Text style={estilos.detalhe}>{`Tem CNH: ${c.tem_cnh ? 'sim' : 'não'}`}</Text>
+      {c.mensagem ? <Text style={estilos.detalhe}>{`"${c.mensagem}"`}</Text> : null}
+      <Text style={estilos.detalhe}>Quer o carro:</Text>
+      <CardCarro
+        carro={{
+          placa: c.carro.placa,
+          marca: c.carro.marca,
+          modelo: c.carro.modelo,
+          fotoUrl: c.carro.foto_path ? foto.urls[c.carro.foto_path] ?? null : null,
+        }}
+      />
+      {erro ? <MensagemErro texto={erro} /> : null}
+      <Botao titulo="Aceitar" onPress={() => responder.mutate(true)} carregando={responder.isPending} />
+      <Botao titulo="Recusar candidato" variante="secundario" onPress={recusar} />
+    </View>
   );
 }
 

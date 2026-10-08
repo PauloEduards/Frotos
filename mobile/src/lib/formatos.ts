@@ -106,3 +106,11 @@ export const UFS = [
   'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA',
   'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
 ] as const;
+
+/** '52998224725' → '529.982.247-25'. */
+export function formatarCpf(cpf: string | null): string {
+  if (!cpf) return '—';
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11) return cpf;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}

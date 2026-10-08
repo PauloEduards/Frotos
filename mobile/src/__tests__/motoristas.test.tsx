@@ -10,6 +10,7 @@ import {
   responderEntrada,
   type Membro,
 } from '@/api/frota';
+import { candidaturasPendentes, responderCandidatura } from '@/api/candidaturas';
 import Motoristas from '@/app/(dono)/(abas)/motoristas';
 import { voltarAoFoco } from '@/testes/foco';
 import { renderComCliente } from '@/testes/renderComCliente';
@@ -23,6 +24,11 @@ jest.mock('@/api/frota', () => ({
   definirNivel: jest.fn(),
   removerMotorista: jest.fn(),
 }));
+jest.mock('@/api/candidaturas', () => ({
+  candidaturasPendentes: jest.fn().mockResolvedValue([]),
+  responderCandidatura: jest.fn(),
+}));
+jest.mock('@/api/fotos', () => ({ urlsAssinadas: jest.fn().mockResolvedValue({}) }));
 
 const mocks = {
   minhaFrota: minhaFrota as jest.Mock,
@@ -176,5 +182,57 @@ describe('motoristas', () => {
     await renderizar();
     expect(await screen.findByText('Falha ao listar.')).toBeTruthy();
     expect(screen.getByText('Tentar de novo')).toBeTruthy();
+  });
+});
+
+const candidatura = {
+  id: 'c1',
+  driver_id: 'd9',
+  nome: 'Diego Lima',
+  telefone: '11988887777',
+  cidade: 'São Paulo',
+  uf: 'SP',
+  cpf: '52998224725',
+  tem_cnh: true,
+  mensagem: 'Trabalho de manhã',
+  criada_em: '2026-10-08T12:00:00.000Z',
+  carro: { vehicle_id: 'v1', placa: 'CDE3F45', marca: 'Fiat', modelo: 'Argo', foto_path: null },
+};
+
+describe('pedidos de motoristas (candidaturas)', () => {
+  it('aparecem no topo com os dados do candidato e o carro desejado', async () => {
+    (candidaturasPendentes as jest.Mock).mockResolvedValue([candidatura]);
+    mocks.listarMembros.mockResolvedValue([membro({ status: 'pendente', id: 'm5', nome: 'Pedro' })]);
+    await renderizar();
+    expect(await screen.findByText('Pedidos de motoristas')).toBeTruthy();
+    expect(screen.getByText('Diego Lima')).toBeTruthy();
+    expect(screen.getByText('11988887777')).toBeTruthy();
+    expect(screen.getByText('São Paulo/SP')).toBeTruthy();
+    expect(screen.getByText('CPF 529.982.247-25')).toBeTruthy();
+    expect(screen.getByText('Tem CNH: sim')).toBeTruthy();
+    expect(screen.getByText('"Trabalho de manhã"')).toBeTruthy();
+    expect(screen.getByLabelText('Placa CDE3F45')).toBeTruthy();
+    const titulos = screen.getAllByText(/^(Pedidos de motoristas|Pedidos para entrar)$/).map((n) => n.props.children);
+    expect(titulos).toEqual(['Pedidos de motoristas', 'Pedidos para entrar']);
+  });
+
+  it('Aceitar responde e atualiza', async () => {
+    (candidaturasPendentes as jest.Mock).mockResolvedValue([candidatura]);
+    (responderCandidatura as jest.Mock).mockResolvedValue(undefined);
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Aceitar'));
+    await waitFor(() => expect(responderCandidatura).toHaveBeenCalledWith('c1', true));
+  });
+
+  it('Recusar pede confirmação', async () => {
+    (candidaturasPendentes as jest.Mock).mockResolvedValue([candidatura]);
+    (responderCandidatura as jest.Mock).mockResolvedValue(undefined);
+    const alerta = jest.spyOn(Alert, 'alert');
+    await renderizar();
+    await fireEvent.press(await screen.findByText('Recusar candidato'));
+    const botoes = alerta.mock.calls[0][2] as BotaoAlerta[];
+    expect(responderCandidatura).not.toHaveBeenCalled();
+    botoes.find((b) => b.text === 'Recusar')?.onPress?.();
+    await waitFor(() => expect(responderCandidatura).toHaveBeenCalledWith('c1', false));
   });
 });

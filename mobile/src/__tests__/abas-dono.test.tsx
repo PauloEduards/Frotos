@@ -20,6 +20,7 @@ jest.mock('expo-router', () => {
 jest.mock('@/api/avisos', () => ({ contarNaoLidos: jest.fn() }));
 jest.mock('@/api/frota', () => ({ minhaFrota: jest.fn() }));
 jest.mock('@/api/pendencias', () => ({ contarPendencias: jest.fn() }));
+jest.mock('@/api/candidaturas', () => ({ contarPedidosMotoristas: jest.fn() }));
 
 const frotaMock = minhaFrota as jest.Mock;
 const contarMock = contarPendencias as jest.Mock;
@@ -72,5 +73,23 @@ describe('Abas do dono - selo de Avisos', () => {
     await waitFor(() => expect(naoLidosMock).toHaveBeenCalled());
     await waitFor(() => expect(client.isFetching()).toBe(0));
     expect(mockOpcoes.avisos.tabBarBadge).toBeUndefined();
+  });
+});
+
+describe('selo da aba Motoristas', () => {
+  it('soma candidaturas e pedidos de entrada', async () => {
+    const contarPedidos = jest.requireMock('@/api/candidaturas').contarPedidosMotoristas as jest.Mock;
+    contarPedidos.mockResolvedValue(4);
+    await renderizar();
+    await waitFor(() => expect(mockOpcoes.motoristas.tabBarBadge).toBe(4));
+    expect(contarPedidos).toHaveBeenCalledWith('f1');
+  });
+
+  it('some quando é zero', async () => {
+    const contarPedidos = jest.requireMock('@/api/candidaturas').contarPedidosMotoristas as jest.Mock;
+    contarPedidos.mockResolvedValue(0);
+    await renderizar();
+    await waitFor(() => expect(contarPedidos).toHaveBeenCalled());
+    expect(mockOpcoes.motoristas.tabBarBadge).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import { Link, Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { contarNaoLidos } from '@/api/avisos';
+import { contarPedidosMotoristas } from '@/api/candidaturas';
 import { minhaFrota } from '@/api/frota';
 import { contarPendencias } from '@/api/pendencias';
 import { cores } from '@/lib/tema';
@@ -49,6 +50,13 @@ export default function AbasDono() {
     refetchInterval: 60_000,
   });
   const avisos = naoLidos.data ?? 0;
+  const pedidos = useQuery({
+    queryKey: ['membros', 'contagem', fleetId],
+    queryFn: () => contarPedidosMotoristas(fleetId as string),
+    enabled: fleetId !== undefined,
+    refetchInterval: 60_000,
+  });
+  const pedidosMotoristas = pedidos.data ?? 0;
 
   return (
     <Tabs
@@ -66,6 +74,9 @@ export default function AbasDono() {
             tabBarIcon: ({ color, size }) => <Ionicons name={a.icone} size={size} color={color} />,
             ...(a.nome === 'pendencias' ? { tabBarBadge: pendencias > 0 ? pendencias : undefined } : {}),
             ...(a.nome === 'avisos' ? { tabBarBadge: avisos > 0 ? avisos : undefined } : {}),
+            ...(a.nome === 'motoristas'
+              ? { tabBarBadge: pedidosMotoristas > 0 ? pedidosMotoristas : undefined }
+              : {}),
             ...(a.nome === 'index' ? { headerRight: BotaoConfiguracoes } : {}),
           }}
         />

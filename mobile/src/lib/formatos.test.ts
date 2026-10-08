@@ -134,3 +134,11 @@ describe('UFS', () => {
     expect(UFS[26]).toBe('TO');
   });
 });
+
+describe('formatarCpf', () => {
+  it('formata 11 dígitos', () => {
+    const { formatarCpf } = require('./formatos');
+    expect(formatarCpf('52998224725')).toBe('529.982.247-25');
+    expect(formatarCpf(null)).toBe('—');
+  });
+});
