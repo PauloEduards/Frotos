@@ -17,3 +17,8 @@ notifyManager.setNotifyFunction((fn) => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = anterior;
   }
 });
+
+// Armazenamento local em memória nos testes (a fila offline persiste no AsyncStorage).
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
