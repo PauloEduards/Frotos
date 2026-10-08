@@ -45,6 +45,10 @@ export function mensagemErro(e: unknown): string {
   if (message.includes('JWT expired')) return 'Sua sessão expirou. Entre de novo.';
   if (message.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
   if (message.includes('User already registered')) return 'Este e-mail já está cadastrado.';
+  // O Auth não repassa o DETAIL do trigger de cadastro; o caso real é CPF repetido.
+  if (message.includes('Database error saving new user')) {
+    return 'Não foi possível criar a conta. Confira o CPF: ele pode já estar cadastrado.';
+  }
 
   return GENERICA;
 }

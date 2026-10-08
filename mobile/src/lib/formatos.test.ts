@@ -142,3 +142,20 @@ describe('formatarCpf', () => {
     expect(formatarCpf(null)).toBe('—');
   });
 });
+
+describe('CPF', () => {
+  const { cpfValido, mascararCpf } = require('./formatos');
+  it('valida dígitos verificadores', () => {
+    expect(cpfValido('529.982.247-25')).toBe(true);
+    expect(cpfValido('52998224724')).toBe(false);
+    expect(cpfValido('11111111111')).toBe(false);
+    expect(cpfValido('123')).toBe(false);
+  });
+  it('máscara enquanto digita', () => {
+    expect(mascararCpf('529')).toBe('529');
+    expect(mascararCpf('5299')).toBe('529.9');
+    expect(mascararCpf('5299822')).toBe('529.982.2');
+    expect(mascararCpf('52998224725')).toBe('529.982.247-25');
+    expect(mascararCpf('529.982.247-2599')).toBe('529.982.247-25');
+  });
+});

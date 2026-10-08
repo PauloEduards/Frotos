@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -14,7 +15,9 @@ import { cadastrar } from '@/api/auth';
 import { Botao } from '@/componentes/Botao';
 import { Campo } from '@/componentes/Campo';
 import { MensagemErro } from '@/componentes/MensagemErro';
+import { Seletor } from '@/componentes/Seletor';
 import { mensagemErro } from '@/lib/erros';
+import { cpfValido, mascararCpf, UFS } from '@/lib/formatos';
 import { cores, espaco } from '@/lib/tema';
 
 type Papel = 'proprietario' | 'motorista';
@@ -24,7 +27,15 @@ const OPCOES: { papel: Papel; titulo: string }[] = [
   { papel: 'motorista', titulo: 'Sou motorista' },
 ];
 
-type Erros = { nome?: string; telefone?: string; email?: string; senha?: string; papel?: string };
+type Erros = {
+  nome?: string;
+  telefone?: string;
+  email?: string;
+  senha?: string;
+  papel?: string;
+  cidade?: string;
+  cpf?: string;
+};
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -32,6 +43,10 @@ export default function Cadastro() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [papel, setPapel] = useState<Papel | null>(null);
+  const [uf, setUf] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [temCnh, setTemCnh] = useState(false);
   const [erros, setErros] = useState<Erros>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -43,6 +58,10 @@ export default function Cadastro() {
     if (!email.trim()) e.email = 'Informe seu e-mail.';
     if (senha.length < 6) e.senha = 'A senha precisa ter pelo menos 6 caracteres.';
     if (!papel) e.papel = 'Escolha se você é proprietário ou motorista.';
+    if (papel === 'motorista') {
+      if (!uf || !cidade.trim()) e.cidade = 'Escolha o estado e informe a cidade.';
+      if (!cpfValido(cpf)) e.cpf = 'CPF inválido.';
+    }
     return e;
   }
 
@@ -60,6 +79,9 @@ export default function Cadastro() {
         email: email.trim(),
         senha,
         papel,
+        ...(papel === 'motorista'
+          ? { uf, cidade: cidade.trim(), cpf: cpf.replace(/\D/g, ''), tem_cnh: temCnh }
+          : {}),
       });
       // A sessão criada leva o layout (auth) a redirecionar pela raiz.
     } catch (err) {
@@ -121,6 +143,31 @@ export default function Cadastro() {
           </View>
           {erros.papel ? <MensagemErro texto={erros.papel} /> : null}
 
+          {papel === 'motorista' ? (
+            <View style={estilos.form}>
+              <Seletor
+                rotulo="Estado"
+                opcoes={UFS.map((u) => ({ valor: u, rotulo: u }))}
+                valor={uf}
+                onChange={setUf}
+                quebrarLinha
+              />
+              <Campo rotulo="Cidade" valor={cidade} onChange={setCidade} erro={erros.cidade} />
+              <Campo
+                rotulo="CPF"
+                tipo="numero"
+                valor={cpf}
+                onChange={(t) => setCpf(mascararCpf(t))}
+                erro={erros.cpf}
+              />
+              <View style={estilos.linhaCnh}>
+                <Text style={estilos.textoCnh}>Tenho CNH</Text>
+                <Switch accessibilityLabel="Tenho CNH" value={temCnh} onValueChange={setTemCnh} />
+              </View>
+              <Text style={estilos.apoio}>Sem CNH você usa o app, mas não pode se candidatar a carros.</Text>
+            </View>
+          ) : null}
+
           {erroGeral ? <MensagemErro texto={erroGeral} /> : null}
           <Botao titulo="Criar conta" onPress={() => void aoCadastrar()} carregando={enviando} />
         </View>
@@ -151,6 +198,9 @@ const estilos = StyleSheet.create({
     paddingHorizontal: espaco.sm,
   },
   opcaoMarcada: { borderColor: cores.primaria, backgroundColor: '#E3F2FD' },
+  linhaCnh: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
+  textoCnh: { fontSize: 16, color: cores.texto },
+  apoio: { fontSize: 13, color: cores.textoSecundario },
   opcaoTexto: { fontSize: 15, color: cores.texto },
   opcaoTextoMarcado: { color: cores.primaria, fontWeight: '600' },
   link: { color: cores.primaria, fontSize: 16, textAlign: 'center', padding: espaco.md },
