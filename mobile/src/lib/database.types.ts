@@ -840,6 +840,29 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"registrar_servico_offline":
+{ Args: { "p_data": string,"p_foto_painel_path"?: string,"p_itens": Json,"p_km": number,"p_nota_foto_path"?: string,"p_oficina"?: string,"p_request_id"?: string,"p_valor_total": number,"p_vehicle_id": string }; Returns: {
+              "autor_id": string,
+"criado_em": string,
+"data": string,
+"id": string,
+"km": number,
+"motivo": string | null,
+"nota_foto_path": string | null,
+"oficina": string | null,
+"request_id": string | null,
+"revisado_em": string | null,
+"revisado_por": string | null,
+"status": Database["public"]['Enums']["status_servico"],
+"valor_total": number,
+"vehicle_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "maintenance_records"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "relatar_ocorrencia":
 { Args: { "p_descricao": string,"p_fotos"?: Json,"p_id"?: string,"p_tipo": Database["public"]['Enums']["tipo_ocorrencia"],"p_vehicle_id": string }; Returns: {
               "criada_em": string,
